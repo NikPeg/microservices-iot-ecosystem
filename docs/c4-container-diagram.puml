@@ -1,0 +1,111 @@
+@startuml C4_Container_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram for Smart Home Microservices Architecture
+
+Person(user, "Пользователь", "Владелец умного дома")
+Person(admin, "Администратор", "Специалист по настройке системы")
+
+System_Boundary(smart_home_system, "Smart Home Ecosystem") {
+    Container(api_gateway, "API Gateway", "Kong/Nginx", "Единая точка входа, маршрутизация, аутентификация")
+    
+    Container(user_service, "User Service", "Go", "Управление пользователями, аутентификация, подписки")
+    Container(home_service, "Home Service", "Go", "Управление домами, комнатами, структурой")
+    Container(device_service, "Device Service", "Go", "Управление IoT устройствами, команды")
+    Container(telemetry_service, "Telemetry Service", "Go", "Сбор и анализ данных телеметрии")
+    Container(automation_service, "Automation Service", "Go", "Сценарии автоматизации, правила")
+    Container(notification_service, "Notification Service", "Go", "Отправка уведомлений")
+    
+    ContainerDb(user_db, "User Database", "PostgreSQL", "Пользователи, профили, подписки")
+    ContainerDb(home_db, "Home Database", "PostgreSQL", "Дома, комнаты, структура")
+    ContainerDb(device_db, "Device Database", "PostgreSQL", "Устройства, команды, состояния")
+    ContainerDb(telemetry_db, "Telemetry Database", "InfluxDB", "Временные ряды, измерения")
+    ContainerDb(automation_db, "Automation Database", "PostgreSQL", "Сценарии, правила, история")
+    ContainerDb(notification_db, "Notification Database", "PostgreSQL", "Уведомления, шаблоны")
+    
+    Container(redis_cache, "Redis Cache", "Redis", "Кэширование, сессии, очереди")
+    Container(message_broker, "Message Broker", "Apache Kafka", "Асинхронная коммуникация, события")
+    
+    Container(monitoring, "Monitoring Stack", "Prometheus/Grafana", "Мониторинг, метрики, алерты")
+    Container(logging, "Logging Stack", "ELK", "Централизованное логирование")
+    Container(tracing, "Distributed Tracing", "Jaeger", "Трассировка запросов")
+}
+
+System_Ext(iot_devices, "IoT Devices", "Датчики, реле, выключатели")
+System_Ext(external_apis, "External APIs", "Погода, геолокация, уведомления")
+System_Ext(mobile_app, "Mobile App", "iOS/Android приложение")
+System_Ext(web_app, "Web Application", "React/Vue.js веб-приложение")
+
+' User interactions
+Rel(user, mobile_app, "Использует", "HTTPS")
+Rel(user, web_app, "Использует", "HTTPS")
+Rel(admin, api_gateway, "Настраивает", "HTTPS")
+
+' Client to API Gateway
+Rel(mobile_app, api_gateway, "API вызовы", "HTTPS/REST")
+Rel(web_app, api_gateway, "API вызовы", "HTTPS/REST")
+
+' API Gateway to Services
+Rel(api_gateway, user_service, "Маршрутизация", "HTTP/REST")
+Rel(api_gateway, home_service, "Маршрутизация", "HTTP/REST")
+Rel(api_gateway, device_service, "Маршрутизация", "HTTP/REST")
+Rel(api_gateway, telemetry_service, "Маршрутизация", "HTTP/REST")
+Rel(api_gateway, automation_service, "Маршрутизация", "HTTP/REST")
+Rel(api_gateway, notification_service, "Маршрутизация", "HTTP/REST")
+
+' Service to Database relationships
+Rel(user_service, user_db, "Читает/записывает", "SQL/TCP")
+Rel(home_service, home_db, "Читает/записывает", "SQL/TCP")
+Rel(device_service, device_db, "Читает/записывает", "SQL/TCP")
+Rel(telemetry_service, telemetry_db, "Читает/записывает", "InfluxQL/HTTP")
+Rel(automation_service, automation_db, "Читает/записывает", "SQL/TCP")
+Rel(notification_service, notification_db, "Читает/записывает", "SQL/TCP")
+
+' Services to Redis Cache
+Rel(user_service, redis_cache, "Кэширует сессии", "Redis Protocol")
+Rel(telemetry_service, redis_cache, "Кэширует данные", "Redis Protocol")
+Rel(automation_service, redis_cache, "Кэширует состояния", "Redis Protocol")
+Rel(notification_service, redis_cache, "Очередь уведомлений", "Redis Protocol")
+
+' Message Broker interactions
+Rel(device_service, message_broker, "Публикует события", "Kafka Protocol")
+Rel(telemetry_service, message_broker, "Подписывается/публикует", "Kafka Protocol")
+Rel(automation_service, message_broker, "Подписывается/публикует", "Kafka Protocol")
+Rel(notification_service, message_broker, "Подписывается", "Kafka Protocol")
+
+' Inter-service communication
+Rel(home_service, user_service, "Проверяет владельца", "HTTP/REST")
+Rel(device_service, home_service, "Получает структуру дома", "HTTP/REST")
+Rel(automation_service, device_service, "Отправляет команды", "HTTP/REST")
+
+' External systems
+Rel(device_service, iot_devices, "Получает данные/отправляет команды", "MQTT/CoAP")
+Rel(notification_service, external_apis, "Отправляет уведомления", "HTTPS/REST")
+Rel(telemetry_service, external_apis, "Получает внешние данные", "HTTPS/REST")
+
+' Observability
+Rel(user_service, monitoring, "Отправляет метрики", "HTTP")
+Rel(home_service, monitoring, "Отправляет метрики", "HTTP")
+Rel(device_service, monitoring, "Отправляет метрики", "HTTP")
+Rel(telemetry_service, monitoring, "Отправляет метрики", "HTTP")
+Rel(automation_service, monitoring, "Отправляет метрики", "HTTP")
+Rel(notification_service, monitoring, "Отправляет метрики", "HTTP")
+
+Rel(user_service, logging, "Отправляет логи", "HTTP")
+Rel(home_service, logging, "Отправляет логи", "HTTP")
+Rel(device_service, logging, "Отправляет логи", "HTTP")
+Rel(telemetry_service, logging, "Отправляет логи", "HTTP")
+Rel(automation_service, logging, "Отправляет логи", "HTTP")
+Rel(notification_service, logging, "Отправляет логи", "HTTP")
+
+Rel(user_service, tracing, "Отправляет трейсы", "HTTP")
+Rel(home_service, tracing, "Отправляет трейсы", "HTTP")
+Rel(device_service, tracing, "Отправляет трейсы", "HTTP")
+Rel(telemetry_service, tracing, "Отправляет трейсы", "HTTP")
+Rel(automation_service, tracing, "Отправляет трейсы", "HTTP")
+Rel(notification_service, tracing, "Отправляет трейсы", "HTTP")
+
+SHOW_LEGEND()
+@enduml

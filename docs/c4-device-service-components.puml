@@ -1,0 +1,77 @@
+@startuml C4_Device_Service_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram for Device Service
+
+Container_Boundary(device_service, "Device Service") {
+    Component(device_api, "Device API Controller", "Go/Gin", "REST API для управления устройствами")
+    Component(device_command_handler, "Device Command Handler", "Go", "Обработка команд устройствам")
+    Component(device_state_manager, "Device State Manager", "Go", "Управление состоянием устройств")
+    Component(device_registry, "Device Registry", "Go", "Регистрация и каталог устройств")
+    Component(device_capability_manager, "Device Capability Manager", "Go", "Управление возможностями устройств")
+    Component(device_health_monitor, "Device Health Monitor", "Go", "Мониторинг состояния устройств")
+    
+    Component(device_repository, "Device Repository", "Go", "Доступ к данным устройств")
+    Component(command_repository, "Command Repository", "Go", "Доступ к данным команд")
+    Component(event_publisher, "Event Publisher", "Go", "Публикация событий в Kafka")
+    Component(iot_adapter, "IoT Protocol Adapter", "Go", "Адаптер для IoT протоколов")
+}
+
+ContainerDb(device_db, "Device Database", "PostgreSQL", "Устройства, команды, состояния")
+Container(message_broker, "Message Broker", "Apache Kafka", "Асинхронные события")
+Container(redis_cache, "Redis Cache", "Redis", "Кэширование состояний")
+System_Ext(iot_devices, "IoT Devices", "Физические устройства")
+Container_Ext(api_gateway, "API Gateway", "Kong", "Маршрутизация запросов")
+Container_Ext(home_service, "Home Service", "Go", "Информация о домах")
+Container_Ext(telemetry_service, "Telemetry Service", "Go", "Сбор телеметрии")
+
+' API Gateway to Device API
+Rel(api_gateway, device_api, "Маршрутизирует запросы", "HTTP/REST")
+
+' Device API interactions
+Rel(device_api, device_registry, "Регистрирует устройства", "Go interface")
+Rel(device_api, device_command_handler, "Отправляет команды", "Go interface")
+Rel(device_api, device_state_manager, "Получает состояние", "Go interface")
+Rel(device_api, device_capability_manager, "Управляет возможностями", "Go interface")
+
+' Device Command Handler interactions
+Rel(device_command_handler, command_repository, "Сохраняет команды", "Go interface")
+Rel(device_command_handler, iot_adapter, "Отправляет команды устройствам", "Go interface")
+Rel(device_command_handler, event_publisher, "Публикует события команд", "Go interface")
+
+' Device State Manager interactions
+Rel(device_state_manager, device_repository, "Читает состояние", "Go interface")
+Rel(device_state_manager, redis_cache, "Кэширует состояние", "Redis Protocol")
+Rel(device_state_manager, event_publisher, "Публикует изменения состояния", "Go interface")
+
+' Device Registry interactions
+Rel(device_registry, device_repository, "Сохраняет устройства", "Go interface")
+Rel(device_registry, home_service, "Проверяет принадлежность дому", "HTTP/REST")
+Rel(device_registry, event_publisher, "Публикует события регистрации", "Go interface")
+
+' Device Capability Manager interactions
+Rel(device_capability_manager, device_repository, "Обновляет возможности", "Go interface")
+Rel(device_capability_manager, iot_adapter, "Запрашивает возможности", "Go interface")
+
+' Device Health Monitor interactions
+Rel(device_health_monitor, device_repository, "Обновляет статус здоровья", "Go interface")
+Rel(device_health_monitor, iot_adapter, "Проверяет доступность", "Go interface")
+Rel(device_health_monitor, event_publisher, "Публикует события здоровья", "Go interface")
+
+' Repository interactions
+Rel(device_repository, device_db, "Читает/записывает устройства", "SQL/TCP")
+Rel(command_repository, device_db, "Читает/записывает команды", "SQL/TCP")
+
+' Event Publisher interactions
+Rel(event_publisher, message_broker, "Публикует события", "Kafka Protocol")
+
+' IoT Adapter interactions
+Rel(iot_adapter, iot_devices, "Коммуникация с устройствами", "MQTT/CoAP/HTTP")
+
+' External service interactions
+Rel(telemetry_service, event_publisher, "Подписывается на события данных", "Kafka Protocol")
+
+SHOW_LEGEND()
+@enduml

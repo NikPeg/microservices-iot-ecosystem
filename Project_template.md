@@ -195,11 +195,208 @@ smart_home/
 
 Предложенная стратегия поэтапной миграции с использованием Strangler Fig Pattern минимизирует риски и обеспечивает плавный переход к целевой архитектуре. Внедрение event-driven подхода и современных инфраструктурных решений позволит создать масштабируемую, надежную и гибкую систему, соответствующую бизнес-целям компании "Тёплый дом".
 
+## Задание 2. Проектирование микросервисной архитектуры
+
+### 2.1 Декомпозиция приложения на микросервисы
+
+На основе доменного анализа из Задания 1 была выполнена декомпозиция монолитного приложения на следующие микросервисы:
+
+#### Основные микросервисы
+
+**1. Device Service (Порт: 8081)**
+- **Ответственность**: Управление IoT устройствами, отправка команд, мониторинг состояния
+- **База данных**: PostgreSQL (device_db)
+- **Ключевые сущности**: Device, Sensor, Actuator, DeviceCommand, DeviceCapability
+
+**2. Telemetry Service (Порт: 8082)**
+- **Ответственность**: Сбор и анализ данных телеметрии, временные ряды, предупреждения
+- **База данных**: InfluxDB (telemetry_db) + Redis (кэш)
+- **Ключевые сущности**: Measurement, MetricType, TimeSeriesData, Alert
+
+**3. User Service (Порт: 8083)**
+- **Ответственность**: Аутентификация, управление пользователями, подписки
+- **База данных**: PostgreSQL (user_db)
+- **Ключевые сущности**: User, Profile, Role, Subscription
+
+**4. Home Service (Порт: 8084)**
+- **Ответственность**: Управление структурой домов, комнат, привязка устройств
+- **База данных**: PostgreSQL (home_db)
+- **Ключевые сущности**: Home, Room, Floor, Location
+
+**5. Automation Service (Порт: 8085)**
+- **Ответственность**: Сценарии автоматизации, триггеры, выполнение правил
+- **База данных**: PostgreSQL (automation_db) + Redis (состояния)
+- **Ключевые сущности**: Scenario, Trigger, Condition, Action
+
+**6. Notification Service (Порт: 8086)**
+- **Ответственность**: Отправка уведомлений, управление каналами доставки
+- **База данных**: PostgreSQL (notification_db) + Redis (очереди)
+- **Ключевые сущности**: Notification, NotificationTemplate, DeliveryChannel
+
+**7. API Gateway (Порт: 8080)**
+- **Ответственность**: Единая точка входа, маршрутизация, аутентификация, rate limiting
+
+#### Инфраструктурные компоненты
+- **Apache Kafka** - асинхронная коммуникация между сервисами
+- **Consul** - service discovery и configuration management
+- **Redis** - кэширование, сессии, очереди
+- **Prometheus + Grafana** - мониторинг и метрики
+- **ELK Stack** - централизованное логирование
+- **Jaeger** - distributed tracing
+
+### 2.2 Определение взаимодействия
+
+#### Синхронное взаимодействие (REST API)
+- **User Service ↔ Home Service**: Управление домами пользователя
+- **Home Service ↔ Device Service**: Привязка устройств к комнатам
+- **Device Service ↔ Telemetry Service**: Получение данных устройств
+- **Automation Service ↔ Device Service**: Отправка команд устройствам
+
+#### Асинхронное взаимодействие (Events через Kafka)
+- **Device Service → Telemetry Service**: События данных устройств
+- **Telemetry Service → Automation Service**: События превышения порогов
+- **Automation Service → Device Service**: Команды выполнения действий
+- **Automation Service → Notification Service**: Запросы на отправку уведомлений
+
+#### Основные топики Kafka
+- `device.events` - события устройств
+- `telemetry.data` - данные телеметрии
+- `automation.triggers` - триггеры автоматизации
+- `notifications.queue` - очередь уведомлений
+
+### 2.3 Визуализация архитектуры
+
+#### C4 - Уровень контейнеров (Containers)
+Создана диаграмма [`c4-container-diagram.puml`](docs/c4-container-diagram.puml), показывающая:
+- Все микросервисы и их взаимодействие
+- Специализированные базы данных для каждого сервиса
+- Инфраструктурные компоненты (Kafka, Redis, мониторинг)
+- Внешние системы (IoT устройства, мобильные приложения)
+
+#### C4 - Уровень компонентов (Components)
+Детализированы ключевые микросервисы:
+
+**Device Service Components** ([`c4-device-service-components.puml`](docs/c4-device-service-components.puml)):
+- Device API Controller - REST API для управления устройствами
+- Device Command Handler - обработка команд устройствам
+- Device State Manager - управление состоянием устройств
+- Device Registry - регистрация и каталог устройств
+- Device Health Monitor - мониторинг состояния устройств
+- IoT Protocol Adapter - адаптер для IoT протоколов
+
+**Automation Service Components** ([`c4-automation-service-components.puml`](docs/c4-automation-service-components.puml)):
+- Scenario Manager - управление жизненным циклом сценариев
+- Trigger Engine - обработка триггеров и условий
+- Rule Evaluator - оценка правил и условий
+- Action Executor - выполнение действий сценариев
+- Scheduler - планировщик задач по времени
+- Event Processor - обработка входящих событий
+
+#### C4 - Уровень кода (Code)
+Для критических частей системы созданы детальные диаграммы:
+
+**Device Service Domain Model** ([`c4-device-service-code-level.puml`](docs/c4-device-service-code-level.puml)):
+- Доменные сущности: Device, Sensor, Actuator, DeviceCommand
+- Value Objects: DeviceId, DeviceType, DeviceStatus, CommandResult
+- Domain Services: DeviceRegistrationService, DeviceCommandService
+- Domain Events: DeviceRegisteredEvent, DeviceCommandExecutedEvent
+- Repository Interfaces: DeviceRepository, CommandRepository
+
+**Device Command Execution Sequence** ([`device-command-sequence.puml`](docs/device-command-sequence.puml)):
+- Полная последовательность выполнения команды устройству
+- От пользователя через Mobile App → API Gateway → Device Service → IoT Device
+- Асинхронная обработка событий через Kafka
+- Интеграция с Automation и Telemetry сервисами
+
+### 2.4 Архитектурные решения и паттерны
+
+#### Применяемые паттерны
+- **Database per Service** - отдельная БД для каждого микросервиса
+- **Event-Driven Architecture** - асинхронное взаимодействие через события
+- **Hexagonal Architecture** - чистая архитектура внутри каждого сервиса
+- **CQRS** - разделение команд и запросов для высоконагруженных сервисов
+- **Circuit Breaker** - защита от каскадных сбоев
+- **Saga Pattern** - управление распределенными транзакциями
+
+#### Стратегии консистентности данных
+- **Eventual Consistency** - для большинства межсервисных операций
+- **Strong Consistency** - для критических операций внутри сервиса
+- **Компенсирующие транзакции** - при сбоях в распределенных операциях
+
+#### Безопасность
+- **OAuth 2.0 + JWT** - централизованная аутентификация
+- **mTLS** - межсервисное взаимодействие
+- **API Gateway** - централизованная авторизация и rate limiting
+
+### 2.5 Преимущества новой архитектуры
+
+#### Масштабируемость
+- Независимое масштабирование каждого сервиса по нагрузке
+- Специализированные базы данных (PostgreSQL, InfluxDB, Redis)
+- Горизонтальное масштабирование по требованию
+
+#### Отказоустойчивость
+- Изоляция сбоев в рамках одного сервиса
+- Circuit Breaker Pattern для защиты от каскадных сбоев
+- Graceful degradation при недоступности компонентов
+
+#### Гибкость разработки
+- Независимые команды разработки для каждого сервиса
+- Технологическое разнообразие для разных задач
+- Быстрое внедрение новых функций без влияния на другие сервисы
+
+#### Производительность
+- Асинхронная обработка тяжелых операций через Kafka
+- Кэширование на уровне сервисов с Redis
+- Оптимизированные запросы к специализированным БД
+
+### 2.6 Стратегия миграции
+
+#### Фазы внедрения
+**Фаза 1: Инфраструктура**
+- Настройка Kafka, Redis, мониторинга
+- Развертывание API Gateway
+- Настройка CI/CD pipeline
+
+**Фаза 2: Базовые сервисы**
+- User Service (аутентификация)
+- Device Service (управление устройствами)
+- Home Service (структура домов)
+
+**Фаза 3: Расширенная функциональность**
+- Telemetry Service (сбор данных)
+- Automation Service (сценарии)
+- Notification Service (уведомления)
+
+**Фаза 4: Оптимизация**
+- Performance tuning
+- Горизонтальное масштабирование
+- Advanced monitoring
+
+## Заключение по Заданию 2
+
+Разработанная микросервисная архитектура обеспечивает четкое разделение ответственности между доменами, масштабируемость и отказоустойчивость системы. Применение современных архитектурных паттернов и технологий позволяет создать гибкую и производительную экосистему умных домов.
+
+Созданная документация включает диаграммы C4 на всех уровнях детализации - от высокоуровневого обзора контейнеров до детальных доменных моделей и последовательностей взаимодействия. Это обеспечивает полное понимание архитектуры для всех участников проекта.
+
 ---
 
 **Файлы документации:**
+
+**Задание 1:**
 - `docs/task1-analysis.md` - детальный анализ текущей системы
 - `docs/domain-analysis.md` - анализ доменов с применением DDD
 - `docs/c4-context-diagram.puml` - диаграмма контекста системы
 - `docs/task1-summary.md` - итоговый отчет и рекомендации
+
+**Задание 2:**
+- `docs/task2-microservices-decomposition.md` - детальная декомпозиция на микросервисы
+- `docs/c4-container-diagram.puml` - диаграмма контейнеров C4
+- `docs/c4-device-service-components.puml` - компоненты Device Service
+- `docs/c4-automation-service-components.puml` - компоненты Automation Service
+- `docs/c4-device-service-code-level.puml` - доменная модель Device Service
+- `docs/device-command-sequence.puml` - последовательность выполнения команды
+- `docs/task2-summary.md` - итоговый отчет по проектированию архитектуры
+
+**Общее:**
 - `docs/README.md` - руководство по работе с документацией

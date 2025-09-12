@@ -1,0 +1,98 @@
+@startuml Device_Command_Execution_Sequence
+!theme plain
+
+title Device Command Execution - Sequence Diagram
+
+actor User as "Пользователь"
+participant MobileApp as "Mobile App"
+participant APIGateway as "API Gateway"
+participant DeviceAPI as "Device API"
+participant CommandHandler as "Command Handler"
+participant DeviceRepository as "Device Repository"
+participant CommandRepository as "Command Repository"
+participant EventPublisher as "Event Publisher"
+participant IoTAdapter as "IoT Adapter"
+participant Device as "IoT Device"
+participant MessageBroker as "Kafka"
+participant AutomationService as "Automation Service"
+participant TelemetryService as "Telemetry Service"
+
+User -> MobileApp: Нажимает "Включить отопление"
+activate MobileApp
+
+MobileApp -> APIGateway: POST /api/v1/devices/{deviceId}/commands
+activate APIGateway
+note right: {"command": "turn_on", "parameters": {"temperature": 22}}
+
+APIGateway -> APIGateway: Проверяет JWT токен
+APIGateway -> DeviceAPI: Маршрутизирует запрос
+activate DeviceAPI
+
+DeviceAPI -> DeviceRepository: findById(deviceId)
+activate DeviceRepository
+DeviceRepository -> DeviceAPI: Device
+deactivate DeviceRepository
+
+DeviceAPI -> DeviceAPI: Валидирует команду
+DeviceAPI -> CommandHandler: executeCommand(deviceId, command, parameters)
+activate CommandHandler
+
+CommandHandler -> CommandRepository: save(DeviceCommand)
+activate CommandRepository
+CommandRepository -> CommandHandler: CommandId
+deactivate CommandRepository
+
+CommandHandler -> IoTAdapter: sendCommand(device, command, parameters)
+activate IoTAdapter
+
+IoTAdapter -> Device: MQTT: {"command": "turn_on", "temperature": 22}
+activate Device
+Device -> IoTAdapter: MQTT: {"status": "success", "current_temp": 20.5}
+deactivate Device
+
+IoTAdapter -> CommandHandler: CommandResult(success=true)
+deactivate IoTAdapter
+
+CommandHandler -> CommandRepository: updateStatus(commandId, COMPLETED)
+activate CommandRepository
+deactivate CommandRepository
+
+CommandHandler -> EventPublisher: publish(DeviceCommandExecutedEvent)
+activate EventPublisher
+
+EventPublisher -> MessageBroker: Публикует событие
+activate MessageBroker
+
+MessageBroker -> AutomationService: DeviceCommandExecutedEvent
+activate AutomationService
+AutomationService -> AutomationService: Обрабатывает событие для сценариев
+deactivate AutomationService
+
+MessageBroker -> TelemetryService: DeviceCommandExecutedEvent
+activate TelemetryService
+TelemetryService -> TelemetryService: Записывает метрику выполнения команды
+deactivate TelemetryService
+
+deactivate MessageBroker
+deactivate EventPublisher
+
+CommandHandler -> DeviceAPI: CommandResult
+deactivate CommandHandler
+
+DeviceAPI -> APIGateway: 200 OK {"commandId": "...", "status": "completed"}
+deactivate DeviceAPI
+
+APIGateway -> MobileApp: 200 OK
+deactivate APIGateway
+
+MobileApp -> User: Показывает "Отопление включено"
+deactivate MobileApp
+
+note over User, TelemetryService
+    Асинхронная обработка:
+    1. Automation Service может запустить связанные сценарии
+    2. Telemetry Service записывает метрики выполнения
+    3. Notification Service может отправить уведомление
+end note
+
+@enduml
