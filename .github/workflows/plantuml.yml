@@ -27,8 +27,13 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    - name: Install PlantUML
+    - name: Install Graphviz and PlantUML
       run: |
+        # Install Graphviz (required for PlantUML)
+        sudo apt-get update
+        sudo apt-get install -y graphviz
+        
+        # Install PlantUML
         wget https://github.com/plantuml/plantuml/releases/download/v1.2023.12/plantuml-1.2023.12.jar
         sudo mkdir -p /opt/plantuml
         sudo mv plantuml-1.2023.12.jar /opt/plantuml/plantuml.jar
