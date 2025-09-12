@@ -1,0 +1,70 @@
+name: PlantUML Diagrams
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'docs/**/*.puml'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - 'docs/**/*.puml'
+
+jobs:
+  generate-diagrams:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install PlantUML
+      run: |
+        wget https://github.com/plantuml/plantuml/releases/download/v1.2023.12/plantuml-1.2023.12.jar
+        sudo mkdir -p /opt/plantuml
+        sudo mv plantuml-1.2023.12.jar /opt/plantuml/plantuml.jar
+        echo '#!/bin/bash' | sudo tee /usr/local/bin/plantuml
+        echo 'java -jar /opt/plantuml/plantuml.jar "$@"' | sudo tee -a /usr/local/bin/plantuml
+        sudo chmod +x /usr/local/bin/plantuml
+
+    - name: Generate Diagrams
+      run: |
+        # Create output directory for generated images
+        mkdir -p docs/images
+        
+        # Generate PNG diagrams from all .puml files in docs directory
+        find docs -name "*.puml" -type f | while read file; do
+          echo "Processing $file"
+          plantuml -tpng -o images "$file"
+        done
+
+    - name: Commit Generated Diagrams
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add docs/images/*.png
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "🤖 Automated PlantUML diagram generation"
+          git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
