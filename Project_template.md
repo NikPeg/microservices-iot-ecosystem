@@ -379,6 +379,169 @@ smart_home/
 
 Созданная документация включает диаграммы C4 на всех уровнях детализации - от высокоуровневого обзора контейнеров до детальных доменных моделей и последовательностей взаимодействия. Это обеспечивает полное понимание архитектуры для всех участников проекта.
 
+## Задание 3. Разработка ER-диаграммы
+
+### 3.1 Идентификация сущностей
+
+На основе спроектированных микросервисов определены ключевые сущности для каждой базы данных в соответствии с принципом Database per Service:
+
+#### Распределение сущностей по микросервисам
+
+| Микросервис | Основные сущности | База данных |
+|-------------|-------------------|-------------|
+| **User Service** | User, Profile, Subscription, Role, UserRole, Session | PostgreSQL |
+| **Home Service** | Home, Room, Floor, Location, HomeConfiguration | PostgreSQL |
+| **Device Service** | Device, DeviceType, DeviceCommand, DeviceCapability, Manufacturer | PostgreSQL |
+| **Automation Service** | Scenario, ScenarioExecution, Trigger, Condition, Action, ActionExecution | PostgreSQL |
+| **Notification Service** | Notification, NotificationTemplate, DeliveryAttempt, DeliveryChannel, NotificationPreference, NotificationQueue | PostgreSQL |
+| **Telemetry Service** | Measurement, MetricType, Alert, AlertRule | InfluxDB |
+
+**Общее количество сущностей**: 32
+
+### 3.2 Определение атрибутов
+
+Для каждой сущности определены детальные атрибуты с учетом:
+
+#### Ключевые принципы проектирования атрибутов:
+- **UUID** для всех первичных ключей (глобальная уникальность)
+- **TIMESTAMP WITH TIME ZONE** для временных меток
+- **JSONB** для гибких конфигураций и метаданных
+- **ENUM** для ограниченных наборов значений
+- **Обязательные поля** created_at и updated_at для аудита
+
+#### Примеры ключевых сущностей:
+
+**Device (Device Service)**:
+- `id` (UUID, PK) - уникальный идентификатор устройства
+- `name` (VARCHAR(100)) - название устройства
+- `serial_number` (VARCHAR(100), UNIQUE) - серийный номер
+- `device_type_id` (UUID, FK) - тип устройства
+- `home_id` (UUID, External FK) - ссылка на дом (Home Service)
+- `room_id` (UUID, External FK) - ссылка на комнату (Home Service)
+- `status` (ENUM) - статус устройства (active, inactive, error, offline)
+- `configuration` (JSONB) - конфигурация устройства
+- `capabilities` (JSONB) - возможности устройства
+
+**Scenario (Automation Service)**:
+- `id` (UUID, PK) - уникальный идентификатор сценария
+- `user_id` (UUID, External FK) - ссылка на пользователя (User Service)
+- `home_id` (UUID, External FK) - ссылка на дом (Home Service)
+- `name` (VARCHAR(100)) - название сценария
+- `enabled` (BOOLEAN) - включен ли сценарий
+- `triggers` (JSONB) - триггеры сценария
+- `conditions` (JSONB) - условия выполнения
+- `actions` (JSONB) - действия сценария
+
+### 3.3 Описание связей между сущностями
+
+#### Внутрисервисные связи:
+- **User ↔ Profile**: Один-к-одному (1:1)
+- **User ↔ Subscription**: Один-ко-многим (1:N)
+- **Home ↔ Room**: Один-ко-многим (1:N)
+- **DeviceType ↔ Device**: Один-ко-многим (1:N)
+- **Device ↔ DeviceCommand**: Один-ко-многим (1:N)
+- **Scenario ↔ ScenarioExecution**: Один-ко-многим (1:N)
+- **NotificationTemplate ↔ Notification**: Один-ко-многим (1:N)
+
+#### Межсервисные связи (External FK):
+- **User → Home**: Пользователь владеет домами (1:N)
+- **User → DeviceCommand**: Пользователь выдает команды устройствам (1:N)
+- **User → Scenario**: Пользователь создает сценарии (1:N)
+- **User → Notification**: Пользователь получает уведомления (1:N)
+- **Home → Device**: Дом содержит устройства (1:N)
+- **Room → Device**: Комната содержит устройства (1:N)
+- **Device → Measurement**: Устройство генерирует измерения (1:N)
+
+### 3.4 Построение ER-диаграмм
+
+Созданы детальные ER-диаграммы для каждого микросервиса:
+
+#### User Service ER Diagram
+**Файл**: [`er-user-service.puml`](docs/er-user-service.puml)
+- Полная модель пользователей с профилями, подписками и ролями
+- Система сессий для безопасности
+- Поддержка множественных подписок и ролей
+
+#### Home Service ER Diagram
+**Файл**: [`er-home-service.puml`](docs/er-home-service.puml)
+- Иерархическая структура: Home → Floor → Room → Location
+- Поддержка координат для точного позиционирования устройств
+- Гибкая конфигурация домов через JSONB
+
+#### Device Service ER Diagram
+**Файл**: [`er-device-service.puml`](docs/er-device-service.puml)
+- Центральная модель IoT устройств с типизацией
+- Система команд с отслеживанием выполнения
+- Гибкие возможности устройств через DeviceCapability
+- Поддержка различных IoT протоколов
+
+#### Automation Service ER Diagram
+**Файл**: [`er-automation-service.puml`](docs/er-automation-service.puml)
+- Сложная модель сценариев с триггерами, условиями и действиями
+- Детальное логирование выполнения сценариев
+- Поддержка retry механизмов и тайм-аутов
+- Приоритизация и планирование выполнения
+
+#### Notification Service ER Diagram
+**Файл**: [`er-notification-service.puml`](docs/er-notification-service.puml)
+- Система уведомлений с множественными каналами доставки
+- Шаблонизация сообщений
+- Персональные настройки пользователей
+- Очереди и повторные попытки доставки
+
+#### Microservices Overview ER Diagram
+**Файл**: [`er-microservices-overview.puml`](docs/er-microservices-overview.puml)
+- Высокоуровневая диаграмма всех микросервисов
+- Визуализация межсервисных связей
+- Обзор основных сущностей каждого сервиса
+
+### 3.5 Особенности проектирования базы данных
+
+#### Database per Service Pattern
+**Преимущества**:
+- Независимость развертывания и масштабирования
+- Технологическое разнообразие (PostgreSQL, InfluxDB, Redis)
+- Изоляция данных и безопасность
+- Автономность команд разработки
+
+**Стратегии обеспечения целостности**:
+- **Strong Consistency** внутри микросервиса
+- **Eventual Consistency** между микросервисами
+- **Saga Pattern** для распределенных транзакций
+- **Компенсирующие действия** при сбоях
+
+#### Специализированные решения
+- **PostgreSQL** - для транзакционных данных с ACID гарантиями
+- **InfluxDB** - для временных рядов телеметрии с оптимизацией производительности
+- **Redis** - для кэширования, сессий и очередей с in-memory производительностью
+
+#### Индексная стратегия
+- **Primary Keys** (UUID) для уникальной идентификации
+- **Foreign Keys** для связей между сущностями
+- **Composite indexes** для частых запросов
+- **JSONB indexes** для поиска в JSON данных
+- **Time-based indexes** для временных запросов
+
+### 3.6 Миграционная стратегия
+
+#### Поэтапная миграция из монолита:
+1. **Анализ данных** - аудит существующих данных и зависимостей
+2. **Создание схем** - DDL скрипты для каждого микросервиса
+3. **Миграция данных** - поэтапное перенесение с проверкой целостности
+4. **Переключение** - постепенное переключение трафика с мониторингом
+
+#### Обеспечение Zero Downtime:
+- Blue-Green Deployment для баз данных
+- Read Replicas для минимизации простоя
+- Event Sourcing для критических данных
+- Compensating Actions при сбоях
+
+## Заключение по Заданию 3
+
+Разработанная модель данных обеспечивает четкое разделение данных между микросервисами при сохранении логической целостности всей системы. Применение принципа Database per Service позволяет каждому микросервису использовать оптимальные технологии баз данных для своих задач.
+
+Созданные ER-диаграммы предоставляют полное представление о структуре данных на всех уровнях - от детальных схем отдельных сервисов до высокоуровневого обзора всей экосистемы. Модель готова для реализации и поддерживает все требования масштабируемой IoT платформы.
+
 ---
 
 **Файлы документации:**
@@ -397,6 +560,16 @@ smart_home/
 - `docs/c4-device-service-code-level.puml` - доменная модель Device Service
 - `docs/device-command-sequence.puml` - последовательность выполнения команды
 - `docs/task2-summary.md` - итоговый отчет по проектированию архитектуры
+
+**Задание 3:**
+- `docs/task3-er-diagram-analysis.md` - детальный анализ сущностей и атрибутов
+- `docs/er-user-service.puml` - ER диаграмма User Service
+- `docs/er-home-service.puml` - ER диаграмма Home Service
+- `docs/er-device-service.puml` - ER диаграмма Device Service
+- `docs/er-automation-service.puml` - ER диаграмма Automation Service
+- `docs/er-notification-service.puml` - ER диаграмма Notification Service
+- `docs/er-microservices-overview.puml` - обзорная ER диаграмма всех сервисов
+- `docs/task3-summary.md` - итоговый отчет по проектированию баз данных
 
 **Общее:**
 - `docs/README.md` - руководство по работе с документацией

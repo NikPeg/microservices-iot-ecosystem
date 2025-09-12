@@ -1,0 +1,121 @@
+@startuml User_Service_ER_Diagram
+!theme plain
+
+title User Service - Entity Relationship Diagram
+
+entity "User" as user {
+  * id : UUID <<PK>>
+  --
+  * email : VARCHAR(255) <<UK>>
+  * password_hash : VARCHAR(255)
+  first_name : VARCHAR(100)
+  last_name : VARCHAR(100)
+  phone : VARCHAR(20)
+  * status : ENUM
+  * email_verified : BOOLEAN
+  email_verification_token : VARCHAR(255)
+  password_reset_token : VARCHAR(255)
+  password_reset_expires : TIMESTAMP
+  last_login : TIMESTAMP
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Profile" as profile {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  avatar_url : VARCHAR(500)
+  timezone : VARCHAR(50)
+  language : VARCHAR(10)
+  date_format : VARCHAR(20)
+  time_format : VARCHAR(10)
+  preferences : JSONB
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Subscription" as subscription {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * plan : ENUM
+  * status : ENUM
+  * started_at : TIMESTAMP
+  expires_at : TIMESTAMP
+  * auto_renew : BOOLEAN
+  payment_method : VARCHAR(50)
+  billing_cycle : ENUM
+  price : DECIMAL(10,2)
+  currency : VARCHAR(3)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Role" as role {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(50) <<UK>>
+  * description : TEXT
+  * permissions : JSONB
+  * created_at : TIMESTAMP
+}
+
+entity "UserRole" as user_role {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * role_id : UUID <<FK>>
+  * assigned_by : UUID <<FK>>
+  * assigned_at : TIMESTAMP
+  expires_at : TIMESTAMP
+}
+
+entity "Session" as session {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * token_hash : VARCHAR(255)
+  * device_info : JSONB
+  ip_address : INET
+  user_agent : TEXT
+  * created_at : TIMESTAMP
+  * expires_at : TIMESTAMP
+  last_activity : TIMESTAMP
+}
+
+' Relationships
+user ||--|| profile : "has profile"
+user ||--o{ subscription : "has subscriptions"
+user ||--o{ user_role : "has roles"
+role ||--o{ user_role : "assigned to users"
+user ||--o{ session : "has sessions"
+user ||--o{ user_role : "assigns roles" 
+
+' Notes for enumerations
+note bottom of user
+  Status Values:
+  - active
+  - inactive
+  - suspended
+  - pending_verification
+end note
+
+note bottom of subscription
+  Plan Values:
+  - basic
+  - premium
+  - enterprise
+  
+  Status Values:
+  - active
+  - expired
+  - cancelled
+  - suspended
+  
+  Billing Cycle:
+  - monthly
+  - yearly
+end note
+
+@enduml

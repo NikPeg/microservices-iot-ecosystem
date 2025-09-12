@@ -1,0 +1,180 @@
+@startuml Microservices_ER_Overview
+!theme plain
+
+title Smart Home Ecosystem - Microservices Database Overview
+
+package "User Service DB" {
+  entity "User" as user {
+    * id : UUID <<PK>>
+    --
+    * email : VARCHAR(255)
+    * password_hash : VARCHAR(255)
+    first_name : VARCHAR(100)
+    last_name : VARCHAR(100)
+    * status : ENUM
+    * created_at : TIMESTAMP
+  }
+  
+  entity "Profile" as profile {
+    * id : UUID <<PK>>
+    --
+    * user_id : UUID <<FK>>
+    timezone : VARCHAR(50)
+    language : VARCHAR(10)
+    preferences : JSONB
+  }
+  
+  entity "Subscription" as subscription {
+    * id : UUID <<PK>>
+    --
+    * user_id : UUID <<FK>>
+    * plan : ENUM
+    * status : ENUM
+    * started_at : TIMESTAMP
+  }
+}
+
+package "Home Service DB" {
+  entity "Home" as home {
+    * id : UUID <<PK>>
+    --
+    * owner_id : UUID <<External FK>>
+    * name : VARCHAR(100)
+    address : TEXT
+    timezone : VARCHAR(50)
+    * created_at : TIMESTAMP
+  }
+  
+  entity "Room" as room {
+    * id : UUID <<PK>>
+    --
+    * home_id : UUID <<FK>>
+    * name : VARCHAR(100)
+    * type : ENUM
+    floor : INTEGER
+    area_sqm : DECIMAL(8,2)
+  }
+}
+
+package "Device Service DB" {
+  entity "Device" as device {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(100)
+    * serial_number : VARCHAR(100)
+    * device_type_id : UUID <<FK>>
+    * home_id : UUID <<External FK>>
+    room_id : UUID <<External FK>>
+    * status : ENUM
+    * created_at : TIMESTAMP
+  }
+  
+  entity "DeviceType" as device_type {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(100)
+    * category : ENUM
+    description : TEXT
+  }
+  
+  entity "DeviceCommand" as device_command {
+    * id : UUID <<PK>>
+    --
+    * device_id : UUID <<FK>>
+    * command : VARCHAR(50)
+    * status : ENUM
+    issued_by : UUID <<External FK>>
+    * issued_at : TIMESTAMP
+  }
+}
+
+package "Automation Service DB" {
+  entity "Scenario" as scenario {
+    * id : UUID <<PK>>
+    --
+    * user_id : UUID <<External FK>>
+    * home_id : UUID <<External FK>>
+    * name : VARCHAR(100)
+    * enabled : BOOLEAN
+    triggers : JSONB
+    actions : JSONB
+    * created_at : TIMESTAMP
+  }
+  
+  entity "ScenarioExecution" as scenario_execution {
+    * id : UUID <<PK>>
+    --
+    * scenario_id : UUID <<FK>>
+    * status : ENUM
+    * started_at : TIMESTAMP
+    completed_at : TIMESTAMP
+  }
+}
+
+package "Notification Service DB" {
+  entity "Notification" as notification {
+    * id : UUID <<PK>>
+    --
+    * user_id : UUID <<External FK>>
+    * type : ENUM
+    * title : VARCHAR(200)
+    * message : TEXT
+    * priority : ENUM
+    * status : ENUM
+    * created_at : TIMESTAMP
+  }
+  
+  entity "NotificationTemplate" as notification_template {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(100)
+    * type : ENUM
+    * body_template : TEXT
+    * active : BOOLEAN
+  }
+}
+
+package "Telemetry Service DB (InfluxDB)" {
+  entity "Measurement" as measurement {
+    * device_id : UUID <<External FK>>
+    * metric_type : VARCHAR(50)
+    * value : DOUBLE
+    * timestamp : TIMESTAMP
+    quality : ENUM
+  }
+}
+
+' Internal relationships
+user ||--|| profile
+user ||--o{ subscription
+home ||--o{ room
+device_type ||--o{ device
+device ||--o{ device_command
+scenario ||--o{ scenario_execution
+notification_template ||--o{ notification
+
+' External relationships (cross-service)
+user ||--o{ home : "owns"
+user ||--o{ device_command : "issues"
+user ||--o{ scenario : "creates"
+user ||--o{ notification : "receives"
+home ||--o{ device : "contains"
+home ||--o{ scenario : "automates"
+room ||--o{ device : "located in"
+device ||--o{ measurement : "generates"
+
+' Notes for external relationships
+note as external_note
+  External FK Relationships:
+  
+  Home.owner_id → User.id
+  Device.home_id → Home.id
+  Device.room_id → Room.id
+  DeviceCommand.issued_by → User.id
+  Scenario.user_id → User.id
+  Scenario.home_id → Home.id
+  Notification.user_id → User.id
+  Measurement.device_id → Device.id
+end note
+
+@enduml

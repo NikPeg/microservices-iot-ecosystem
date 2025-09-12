@@ -5,7 +5,7 @@ LAYOUT_WITH_LEGEND()
 
 title System Context Diagram for Smart Home Monolithic Application
 
-' Updated to test fixed GitHub Actions workflow with Graphviz
+' Updated to test cleanup functionality in GitHub Actions workflow
 
 Person(user, "Пользователь", "Владелец умного дома, управляет отоплением и мониторит температуру")
 Person(admin, "Администратор", "Специалист по подключению и настройке системы отопления")
