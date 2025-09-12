@@ -1,57 +1,36 @@
-@startuml Device_Service_Domain_Model
+@startuml Device_Service_Core_Domain_Model
 !theme plain
 
-title Device Service - Domain Model (Code Level)
+title Device Service - Core Domain Model (Critical Parts Only)
 
-package "Domain Layer" {
+package "Core Domain Entities" {
     abstract class Device {
         -id: DeviceId
-        -name: DeviceName
+        -name: String
         -type: DeviceType
-        -homeId: HomeId
-        -roomId: RoomId
         -status: DeviceStatus
-        -capabilities: List<DeviceCapability>
-        -configuration: DeviceConfiguration
-        -lastSeen: Timestamp
-        -createdAt: Timestamp
-        -updatedAt: Timestamp
+        -homeId: UUID
+        -roomId: UUID
         
         +getId(): DeviceId
-        +getName(): DeviceName
-        +getType(): DeviceType
         +getStatus(): DeviceStatus
         +updateStatus(status: DeviceStatus): void
-        +addCapability(capability: DeviceCapability): void
-        +removeCapability(capability: DeviceCapability): void
-        +updateConfiguration(config: DeviceConfiguration): void
-        +isOnline(): boolean
         +canExecuteCommand(command: DeviceCommand): boolean
         +executeCommand(command: DeviceCommand): CommandResult
     }
     
     class Sensor extends Device {
-        -measurementType: MeasurementType
-        -unit: Unit
-        -precision: Precision
-        -range: MeasurementRange
+        -measurementType: String
+        -unit: String
         
-        +getMeasurementType(): MeasurementType
-        +getUnit(): Unit
         +takeMeasurement(): Measurement
-        +calibrate(calibrationData: CalibrationData): void
     }
     
     class Actuator extends Device {
-        -actuatorType: ActuatorType
-        -powerRating: PowerRating
-        -controlType: ControlType
+        -actuatorType: String
         
-        +getActuatorType(): ActuatorType
-        +getPowerRating(): PowerRating
         +activate(parameters: Map<String, Object>): void
         +deactivate(): void
-        +getState(): ActuatorState
     }
     
     class DeviceCommand {
@@ -60,52 +39,11 @@ package "Domain Layer" {
         -command: String
         -parameters: Map<String, Object>
         -status: CommandStatus
-        -issuedAt: Timestamp
         -executedAt: Timestamp
-        -result: CommandResult
         
-        +getId(): CommandId
-        +getDeviceId(): DeviceId
-        +getCommand(): String
-        +getParameters(): Map<String, Object>
-        +getStatus(): CommandStatus
-        +markAsExecuted(result: CommandResult): void
+        +execute(): CommandResult
+        +markAsCompleted(result: CommandResult): void
         +markAsFailed(error: String): void
-        +isExpired(): boolean
-    }
-    
-    class DeviceCapability {
-        -type: CapabilityType
-        -name: String
-        -description: String
-        -parameters: Map<String, CapabilityParameter>
-        -supportedCommands: List<String>
-        
-        +getType(): CapabilityType
-        +getName(): String
-        +getDescription(): String
-        +getParameters(): Map<String, CapabilityParameter>
-        +getSupportedCommands(): List<String>
-        +supportsCommand(command: String): boolean
-    }
-    
-    class Measurement {
-        -id: MeasurementId
-        -deviceId: DeviceId
-        -type: MeasurementType
-        -value: Double
-        -unit: Unit
-        -quality: DataQuality
-        -timestamp: Timestamp
-        
-        +getId(): MeasurementId
-        +getDeviceId(): DeviceId
-        +getType(): MeasurementType
-        +getValue(): Double
-        +getUnit(): Unit
-        +getQuality(): DataQuality
-        +getTimestamp(): Timestamp
-        +isValid(): boolean
     }
 }
 
@@ -113,117 +51,66 @@ package "Value Objects" {
     class DeviceId {
         -value: UUID
         +getValue(): UUID
-        +toString(): String
-        +equals(other: DeviceId): boolean
-    }
-    
-    class DeviceName {
-        -value: String
-        +getValue(): String
-        +toString(): String
-        +isValid(): boolean
     }
     
     enum DeviceType {
         TEMPERATURE_SENSOR
-        HUMIDITY_SENSOR
-        MOTION_SENSOR
-        DOOR_SENSOR
         LIGHT_SWITCH
         THERMOSTAT
         SMART_PLUG
-        SECURITY_CAMERA
     }
     
     enum DeviceStatus {
         ACTIVE
         INACTIVE
         ERROR
-        MAINTENANCE
         OFFLINE
     }
     
     enum CommandStatus {
         PENDING
-        EXECUTING
         COMPLETED
         FAILED
-        EXPIRED
     }
     
     class CommandResult {
         -success: boolean
         -message: String
-        -data: Map<String, Object>
         -executionTime: Duration
         
         +isSuccess(): boolean
         +getMessage(): String
-        +getData(): Map<String, Object>
-        +getExecutionTime(): Duration
     }
 }
 
-package "Domain Services" {
-    interface DeviceRegistrationService {
-        +registerDevice(device: Device): DeviceId
-        +unregisterDevice(deviceId: DeviceId): void
-        +validateDevice(device: Device): ValidationResult
-    }
-    
+package "Critical Domain Services" {
     interface DeviceCommandService {
         +sendCommand(command: DeviceCommand): CommandResult
         +getCommandHistory(deviceId: DeviceId): List<DeviceCommand>
-        +cancelCommand(commandId: CommandId): void
     }
     
-    interface DeviceHealthService {
-        +checkHealth(deviceId: DeviceId): HealthStatus
-        +getHealthHistory(deviceId: DeviceId): List<HealthCheck>
-        +scheduleHealthCheck(deviceId: DeviceId, interval: Duration): void
+    interface DeviceRegistrationService {
+        +registerDevice(device: Device): DeviceId
+        +validateDevice(device: Device): boolean
     }
 }
 
-package "Repository Interfaces" {
-    interface DeviceRepository {
-        +save(device: Device): void
-        +findById(id: DeviceId): Optional<Device>
-        +findByHomeId(homeId: HomeId): List<Device>
-        +findByType(type: DeviceType): List<Device>
-        +findByStatus(status: DeviceStatus): List<Device>
-        +delete(id: DeviceId): void
-    }
-    
-    interface CommandRepository {
-        +save(command: DeviceCommand): void
-        +findById(id: CommandId): Optional<DeviceCommand>
-        +findByDeviceId(deviceId: DeviceId): List<DeviceCommand>
-        +findPendingCommands(): List<DeviceCommand>
-        +updateStatus(commandId: CommandId, status: CommandStatus): void
-    }
-}
-
-package "Domain Events" {
+package "Key Domain Events" {
     abstract class DomainEvent {
-        -eventId: EventId
-        -aggregateId: String
+        -eventId: UUID
         -occurredAt: Timestamp
-        -version: Long
         
-        +getEventId(): EventId
-        +getAggregateId(): String
+        +getEventId(): UUID
         +getOccurredAt(): Timestamp
-        +getVersion(): Long
     }
     
-    class DeviceRegisteredEvent extends DomainEvent {
+    class DeviceCommandExecutedEvent extends DomainEvent {
         -deviceId: DeviceId
-        -deviceType: DeviceType
-        -homeId: HomeId
+        -command: String
+        -result: CommandResult
         
         +getDeviceId(): DeviceId
-        +getDeviceType(): DeviceType
-        +getHomeId(): HomeId
+        +getResult(): CommandResult
     }
     
     class DeviceStatusChangedEvent extends DomainEvent {
@@ -232,52 +119,24 @@ package "Domain Events" {
         -newStatus: DeviceStatus
         
         +getDeviceId(): DeviceId
-        +getOldStatus(): DeviceStatus
         +getNewStatus(): DeviceStatus
-    }
-    
-    class DeviceCommandExecutedEvent extends DomainEvent {
-        -commandId: CommandId
-        -deviceId: DeviceId
-        -command: String
-        -result: CommandResult
-        
-        +getCommandId(): CommandId
-        +getDeviceId(): DeviceId
-        +getCommand(): String
-        +getResult(): CommandResult
-    }
-    
-    class MeasurementReceivedEvent extends DomainEvent {
-        -measurement: Measurement
-        
-        +getMeasurement(): Measurement
     }
 }
 
-' Relationships
-Device ||--o{ DeviceCapability : has
-Device ||--o{ DeviceCommand : receives
-Sensor ||--o{ Measurement : produces
+' Key Relationships
 Device ||--|| DeviceId : identified by
-Device ||--|| DeviceName : named by
 Device ||--|| DeviceType : typed by
 Device ||--|| DeviceStatus : has status
+Device ||--o{ DeviceCommand : receives
 
 DeviceCommand ||--|| CommandId : identified by
 DeviceCommand ||--|| CommandStatus : has status
 DeviceCommand ||--o| CommandResult : produces
 
-DeviceRegistrationService ..> Device : registers
 DeviceCommandService ..> DeviceCommand : manages
-DeviceHealthService ..> Device : monitors
+DeviceRegistrationService ..> Device : registers
 
-DeviceRepository ..> Device : persists
-CommandRepository ..> DeviceCommand : persists
-
-DeviceRegisteredEvent ..> Device : created from
-DeviceStatusChangedEvent ..> Device : created from
 DeviceCommandExecutedEvent ..> DeviceCommand : created from
-MeasurementReceivedEvent ..> Measurement : created from
+DeviceStatusChangedEvent ..> Device : created from
 
 @enduml
