@@ -542,6 +542,247 @@ smart_home/
 
 Созданные ER-диаграммы предоставляют полное представление о структуре данных на всех уровнях - от детальных схем отдельных сервисов до высокоуровневого обзора всей экосистемы. Модель готова для реализации и поддерживает все требования масштабируемой IoT платформы.
 
+## Задание 4. Создание и документирование API
+
+### 4.1 Выбор типов API
+
+Для обеспечения эффективного взаимодействия между микросервисами выбраны два типа API:
+
+#### REST API (Синхронное взаимодействие)
+**Применение**:
+- Операции CRUD с сущностями
+- Запросы данных, требующие немедленного ответа
+- Команды управления устройствами
+- Аутентификация и авторизация
+
+**Микросервисы с REST API**:
+- **User Service** (порт 8083) - управление пользователями и аутентификация
+- **Home Service** (порт 8084) - управление домами и комнатами
+- **Device Service** (порт 8081) - управление устройствами и отправка команд
+- **Automation Service** (порт 8085) - управление сценариями автоматизации
+- **Notification Service** (порт 8086) - управление уведомлениями
+
+#### AsyncAPI (Асинхронное взаимодействие)
+**Применение**:
+- Обработка событий между микросервисами
+- Потоковая передача телеметрии
+- Уведомления о изменениях состояния
+- Выполнение сценариев автоматизации
+
+**Основные каналы событий**:
+- **device.events** - события устройств
+- **telemetry.data** - потоковые данные телеметрии
+- **automation.events** - события автоматизации
+- **notification.events** - события уведомлений
+
+### 4.2 Проектирование и документирование API
+
+#### Device Service API
+**Файл**: [`device-service-openapi.yaml`](docs/device-service-openapi.yaml)
+
+**Ключевые endpoints**:
+
+**Управление устройствами**:
+- `GET /devices` - получение списка устройств с фильтрацией по дому, комнате, типу, статусу
+- `GET /devices/{deviceId}` - получение детальной информации об устройстве
+- `POST /devices` - регистрация нового устройства в системе
+- `PUT /devices/{deviceId}` - обновление информации об устройстве
+- `DELETE /devices/{deviceId}` - удаление устройства из системы
+
+**Управление командами**:
+- `POST /devices/{deviceId}/commands` - отправка команды устройству (асинхронная обработка)
+- `GET /devices/{deviceId}/commands/{commandId}` - получение статуса выполнения команды
+
+**Пример запроса отправки команды**:
+```http
+POST /api/v1/devices/550e8400-e29b-41d4-a716-446655440000/commands
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{
+  "command": "set_temperature",
+  "parameters": {
+    "temperature": 24.0,
+    "mode": "heat"
+  },
+  "timeout": 30
+}
+```
+
+**Пример ответа**:
+```json
+{
+  "command_id": "command-uuid",
+  "device_id": "550e8400-e29b-41d4-a716-446655440000",
+  "command": "set_temperature",
+  "status": "pending",
+  "issued_at": "2025-09-12T16:25:00Z",
+  "expires_at": "2025-09-12T16:25:30Z"
+}
+```
+
+#### User Service API
+**Ключевые endpoints**:
+- `POST /auth/login` - аутентификация пользователя с получением JWT токена
+- `GET /users/me` - получение информации о текущем пользователе
+- `PUT /users/me` - обновление профиля пользователя
+
+#### Home Service API
+**Ключевые endpoints**:
+- `GET /homes` - получение списка домов пользователя
+- `GET /homes/{homeId}/rooms` - получение списка комнат в доме
+- `POST /homes` - создание нового дома
+- `POST /homes/{homeId}/rooms` - создание новой комнаты
+
+#### Automation Service API
+**Ключевые endpoints**:
+- `GET /scenarios` - получение списка сценариев автоматизации
+- `POST /scenarios` - создание нового сценария
+- `POST /scenarios/{scenarioId}/execute` - ручное выполнение сценария
+- `GET /scenarios/{scenarioId}/executions` - история выполнения сценария
+
+### 4.3 AsyncAPI спецификация
+
+**Файл**: [`smart-home-asyncapi.yaml`](docs/smart-home-asyncapi.yaml)
+
+#### Основные каналы событий:
+
+**device.events** - События устройств:
+- `DeviceStatusChanged` - изменение статуса устройства
+- `DeviceCommandExecuted` - выполнение команды устройства
+- `DeviceRegistered` - регистрация нового устройства
+
+**Пример события изменения статуса устройства**:
+```json
+{
+  "eventId": "550e8400-e29b-41d4-a716-446655440001",
+  "eventType": "DeviceStatusChanged",
+  "deviceId": "550e8400-e29b-41d4-a716-446655440000",
+  "deviceName": "Living Room Thermostat",
+  "oldStatus": "active",
+  "newStatus": "offline",
+  "timestamp": "2025-09-12T16:25:00Z",
+  "metadata": {
+    "reason": "network_timeout",
+    "last_seen": "2025-09-12T16:20:00Z"
+  }
+}
+```
+
+**telemetry.data** - Данные телеметрии:
+- `MeasurementReceived` - получение новых измерений с датчиков
+- `AlertTriggered` - срабатывание предупреждения по пороговым значениям
+
+**automation.events** - События автоматизации:
+- `ScenarioTriggered` - запуск сценария автоматизации
+- `ScenarioExecuted` - завершение выполнения сценария
+- `ExecuteDeviceCommand` - команда выполнения действия на устройстве
+
+**notification.events** - События уведомлений:
+- `SendNotification` - запрос на отправку уведомления пользователю
+- `NotificationDelivered` - подтверждение доставки уведомления
+
+### 4.4 Контракты взаимодействия
+
+#### Стандартизация форматов
+
+**Коды ответов HTTP**:
+- **200 OK** - запрос выполнен успешно
+- **201 Created** - ресурс создан успешно
+- **202 Accepted** - запрос принят к обработке (асинхронные операции)
+- **400 Bad Request** - некорректный запрос
+- **401 Unauthorized** - требуется аутентификация
+- **403 Forbidden** - доступ запрещен
+- **404 Not Found** - ресурс не найден
+- **422 Unprocessable Entity** - ошибка валидации данных
+- **500 Internal Server Error** - внутренняя ошибка сервера
+
+**Стандартный формат ошибок**:
+```json
+{
+  "error": {
+    "code": "DEVICE_NOT_FOUND",
+    "message": "Device with ID 550e8400-e29b-41d4-a716-446655440000 not found",
+    "details": {
+      "device_id": "550e8400-e29b-41d4-a716-446655440000",
+      "timestamp": "2025-09-12T16:25:00Z",
+      "trace_id": "trace-uuid"
+    }
+  }
+}
+```
+
+#### Аутентификация и авторизация
+
+**JWT Bearer Token**:
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Области доступа (Scopes)**:
+- `devices:read` - чтение информации об устройствах
+- `devices:write` - управление устройствами
+- `devices:command` - отправка команд устройствам
+- `homes:read` - чтение информации о домах
+- `homes:write` - управление домами
+- `scenarios:read` - чтение сценариев
+- `scenarios:write` - управление сценариями
+- `scenarios:execute` - выполнение сценариев
+
+#### Версионирование и Rate Limiting
+
+**Версионирование**: URL-based (`/api/v1/`, `/api/v2/`)
+**Rate Limiting**:
+- Аутентифицированные пользователи: 1000 запросов/час
+- Команды устройствам: 100 команд/час на устройство
+- Создание сценариев: 50 операций/час
+
+### 4.5 Примеры интеграции
+
+#### Сценарий: Автоматическое управление температурой
+
+1. **Получение данных телеметрии** (AsyncAPI):
+```json
+{
+  "eventType": "MeasurementReceived",
+  "deviceId": "thermostat-001",
+  "measurements": [
+    {"type": "temperature", "value": 18.0, "unit": "°C"}
+  ]
+}
+```
+
+2. **Срабатывание сценария** (AsyncAPI):
+```json
+{
+  "eventType": "ScenarioTriggered",
+  "scenarioId": "heating-scenario",
+  "triggeredBy": "temperature_threshold"
+}
+```
+
+3. **Выполнение команды устройству** (REST API):
+```http
+POST /api/v1/devices/thermostat-001/commands
+{
+  "command": "set_temperature",
+  "parameters": {"temperature": 22.0}
+}
+```
+
+## Заключение по Заданию 4
+
+Разработанные API спецификации обеспечивают полноценное взаимодействие между микросервисами экосистемы "Тёплый дом":
+
+- **REST API** для синхронных операций CRUD и управления устройствами
+- **AsyncAPI** для событийно-ориентированной архитектуры и реактивной обработки
+- **Стандартизированные контракты** с детальными примерами запросов и ответов
+- **Безопасность** через JWT аутентификацию и scope-based авторизацию
+- **Масштабируемость** через версионирование и rate limiting
+- **Наблюдаемость** через трассировку запросов и стандартизированное логирование
+
+API готовы для реализации и обеспечивают надежное взаимодействие между всеми компонентами микросервисной архитектуры.
+
 ---
 
 **Файлы документации:**
@@ -570,6 +811,12 @@ smart_home/
 - `docs/er-notification-service.puml` - ER диаграмма Notification Service
 - `docs/er-microservices-overview.puml` - обзорная ER диаграмма всех сервисов
 - `docs/task3-summary.md` - итоговый отчет по проектированию баз данных
+
+**Задание 4:**
+- `docs/task4-api-design.md` - детальное описание дизайна API
+- `docs/device-service-openapi.yaml` - OpenAPI спецификация Device Service
+- `docs/smart-home-asyncapi.yaml` - AsyncAPI спецификация для событийной архитектуры
+- `docs/task4-summary.md` - итоговый отчет по созданию и документированию API
 
 **Общее:**
 - `docs/README.md` - руководство по работе с документацией
