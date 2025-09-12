@@ -42,7 +42,7 @@
 
 ### 5. Визуализация контекста системы — диаграмма С4
 
-Диаграмма контекста системы находится в файле [`docs/c4-context-diagram.puml`](docs/c4-context-diagram.puml).
+Диаграмма контекста системы находится в файле [`docs/task1-c4-context-diagram.puml`](docs/task1-c4-context-diagram.puml).
 
 #### Автоматическая генерация диаграмм
 
