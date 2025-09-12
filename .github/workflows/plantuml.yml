@@ -41,28 +41,39 @@ jobs:
         echo 'java -jar /opt/plantuml/plantuml.jar "$@"' | sudo tee -a /usr/local/bin/plantuml
         sudo chmod +x /usr/local/bin/plantuml
 
-    - name: Generate Diagrams
+    - name: Clean and Generate Diagrams
       run: |
         # Create output directory for generated images
         mkdir -p docs/images
         
+        # Remove all existing PNG files in docs/images to avoid orphaned files
+        echo "Cleaning existing PNG files..."
+        rm -f docs/images/*.png
+        
         # Generate PNG diagrams from all .puml files in docs directory
+        echo "Generating new diagrams..."
         find docs -name "*.puml" -type f | while read file; do
           echo "Processing $file"
           plantuml -tpng -o images "$file"
         done
+        
+        # List generated files for verification
+        echo "Generated files:"
+        ls -la docs/images/
 
     - name: Commit Generated Diagrams
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add docs/images/*.png
+        
+        # Add all changes in docs/images directory (including deletions)
+        git add docs/images/
         
         # Check if there are changes to commit
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "🤖 Automated PlantUML diagram generation"
+          git commit -m "🤖 Automated PlantUML diagram generation and cleanup"
           git push
         fi
       env:
