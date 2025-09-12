@@ -1,0 +1,29 @@
+@startuml C4_Context_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context Diagram for Smart Home Monolithic Application
+
+Person(user, "Пользователь", "Владелец умного дома, управляет отоплением и мониторит температуру")
+Person(admin, "Администратор", "Специалист по подключению и настройке системы отопления")
+
+System(smarthome_app, "Smart Home Monolith", "Монолитное приложение на Go для управления отоплением и мониторинга температуры")
+
+System_Ext(temperature_api, "Temperature API", "Внешний сервис для получения данных о температуре с датчиков")
+System_Ext(temperature_sensors, "Температурные датчики", "Физические датчики температуры, установленные в домах")
+System_Ext(heating_relays, "Реле отопления", "Физические устройства управления системой отопления")
+
+SystemDb(postgres_db, "PostgreSQL Database", "База данных для хранения информации о датчиках и их состоянии")
+
+Rel(user, smarthome_app, "Управляет отоплением и просматривает температуру", "HTTPS/REST API")
+Rel(admin, smarthome_app, "Настраивает и подключает новые датчики", "HTTPS/REST API")
+
+Rel(smarthome_app, temperature_api, "Получает актуальные данные о температуре", "HTTP/REST")
+Rel(smarthome_app, postgres_db, "Читает/записывает данные о датчиках", "SQL/TCP")
+
+Rel(temperature_api, temperature_sensors, "Собирает данные", "IoT Protocol")
+Rel(smarthome_app, heating_relays, "Отправляет команды управления", "IoT Protocol")
+
+SHOW_LEGEND()
+@enduml
