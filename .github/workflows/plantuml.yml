@@ -2,15 +2,9 @@ name: PlantUML Diagrams
 
 on:
   push:
-    branches:
-      - main
-      - master
     paths:
       - 'docs/**/*.puml'
   pull_request:
-    branches:
-      - main
-      - master
     paths:
       - 'docs/**/*.puml'
 
