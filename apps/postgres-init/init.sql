@@ -3,9 +3,7 @@
 
 -- Create database if it doesn't exist
 -- Note: This will be executed by the postgres user in the container
-
--- Create the main database
-CREATE DATABASE IF NOT EXISTS smarthome;
+-- The database 'smarthome' is already created by POSTGRES_DB environment variable
 
 -- Connect to the smarthome database
 \c smarthome;
