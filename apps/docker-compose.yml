@@ -4,9 +4,9 @@ services:
     image: postgres:16-alpine
     container_name: smarthome-postgres
     environment:
-      - POSTGRES_DB=smarthome
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${POSTGRES_DB:-smarthome}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d smarthome"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smarthome}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,16 +28,16 @@ services:
     image: postgres:16-alpine
     container_name: smarthome-device-postgres
     environment:
-      - POSTGRES_DB=device_service_db
-      - POSTGRES_USER=device_user
-      - POSTGRES_PASSWORD=device_password
+      - POSTGRES_DB=${DEVICE_POSTGRES_DB:-device_service_db}
+      - POSTGRES_USER=${DEVICE_POSTGRES_USER:-device_user}
+      - POSTGRES_PASSWORD=${DEVICE_POSTGRES_PASSWORD:-device_password}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - device_postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U device_user -d device_service_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DEVICE_POSTGRES_USER:-device_user} -d ${DEVICE_POSTGRES_DB:-device_service_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,11 +52,11 @@ services:
     container_name: smarthome-influxdb
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
-      - DOCKER_INFLUXDB_INIT_ORG=smart-home
-      - DOCKER_INFLUXDB_INIT_BUCKET=telemetry
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=telemetry-token
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD:-adminpassword}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-smart-home}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-telemetry}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN:-telemetry-token}
     volumes:
       - influxdb_data:/var/lib/influxdb2
     ports:
@@ -103,8 +103,8 @@ services:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=device_user
-      - DB_PASSWORD=device_password
+      - DB_USERNAME=${DEVICE_POSTGRES_USER:-device_user}
+      - DB_PASSWORD=${DEVICE_POSTGRES_PASSWORD:-device_password}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - MONOLITH_URL=http://app:8080
@@ -133,9 +133,9 @@ services:
         condition: service_healthy
     environment:
       - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_TOKEN=telemetry-token
-      - INFLUXDB_ORG=smart-home
-      - INFLUXDB_BUCKET=telemetry
+      - INFLUXDB_TOKEN=${INFLUXDB_ADMIN_TOKEN:-telemetry-token}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-smart-home}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-telemetry}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DEVICE_SERVICE_URL=http://device-service:8081
@@ -192,7 +192,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/smarthome
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-smarthome}
       - TEMPERATURE_API_URL=http://temperature-api:8083
       - DEVICE_SERVICE_URL=http://device-service:8081
       - TELEMETRY_SERVICE_URL=http://telemetry-service:8082
