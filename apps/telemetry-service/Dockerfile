@@ -7,9 +7,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+# Install system dependencies for Python packages
 RUN apt-get update && apt-get install -y \
-    curl \
+    build-essential \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -36,9 +37,9 @@ USER appuser
 # Expose port
 EXPOSE 8082
 
-# Health check
+# Health check using Python
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8082/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8082/health')" || exit 1
 
 # Environment variables with defaults
 ENV PYTHONPATH=/app \

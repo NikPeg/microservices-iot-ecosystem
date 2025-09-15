@@ -1,5 +1,5 @@
 # Multi-stage build for Device Service
-FROM maven:3.9.4-openjdk-21-slim AS build
+FROM maven:3.9.4-openjdk-17 AS build
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM openjdk:21-jre-slim
+FROM openjdk:17-jdk-slim
 
 # Install curl for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
