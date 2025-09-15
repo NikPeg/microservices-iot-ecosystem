@@ -783,6 +783,322 @@ POST /api/v1/devices/thermostat-001/commands
 
 API готовы для реализации и обеспечивают надежное взаимодействие между всеми компонентами микросервисной архитектуры.
 
+## Задание 5. Создание Dockerfile и интеграция с PostgreSQL
+
+### 5.1 Реализация Temperature API Service
+
+#### Технические характеристики
+- **Язык программирования**: Go 1.21
+- **Web-фреймворк**: Gin (высокопроизводительный HTTP роутер)
+- **Порт**: 8081 (согласно требованиям)
+- **Архитектура**: RESTful API с JSON ответами
+- **Контейнеризация**: Docker с multi-stage build
+
+#### Основная функциональность
+Создан полнофункциональный микросервис [`apps/temperature-api/`](apps/temperature-api/) со следующими возможностями:
+
+**API Endpoints**:
+- `GET /health` - проверка состояния сервиса
+- `GET /temperature?location={location}` - получение температуры по местоположению
+- `GET /temperature/{sensorId}` - получение температуры по ID датчика
+
+**Алгоритм симуляции температуры**:
+- **Базовые температуры по локациям**:
+  - Гостиная: 22°C ± 3°C
+  - Спальня: 20°C ± 2.5°C
+  - Кухня: 24°C ± 4°C
+  - Ванная: 23°C ± 2°C
+  - Гараж: 15°C ± 8°C
+  - Улица: 10°C ± 15°C
+- **Временные вариации**: ±1°C для дневного/ночного цикла
+- **Случайные отклонения**: в пределах реалистичных диапазонов
+
+**Пример ответа API**:
+```json
+{
+  "value": 22.3,
+  "unit": "°C",
+  "timestamp": "2025-09-15T12:30:00Z",
+  "location": "living_room",
+  "status": "active",
+  "sensor_id": "sensor-living_room-456",
+  "sensor_type": "temperature",
+  "description": "Temperature reading for living_room"
+}
+```
+
+### 5.2 Docker Implementation
+
+#### Dockerfile Architecture
+Создан оптимизированный [`apps/temperature-api/Dockerfile`](apps/temperature-api/Dockerfile) с использованием:
+
+**Multi-stage Build**:
+- **Build Stage**: Golang 1.21 Alpine для компиляции
+- **Runtime Stage**: Alpine Linux для минимального размера образа
+
+**Безопасность**:
+- Выполнение от имени non-root пользователя
+- Минимальная атака поверхность с Alpine Linux
+- Health check для мониторинга состояния
+
+**Оптимизация**:
+- Статическая компиляция для портабельности
+- Кэширование слоев Docker для быстрой пересборки
+- Размер финального образа ~20MB
+
+### 5.3 PostgreSQL Integration
+
+#### Database Configuration
+Настроена полная интеграция с PostgreSQL:
+
+**Конфигурация сервиса**:
+- **Image**: PostgreSQL 16 Alpine
+- **Database**: `smarthome`
+- **Credentials**: postgres/postgres (для разработки)
+- **Port**: 5432
+- **Volume**: Persistent storage для данных
+
+#### Database Schema
+Создан комплексный скрипт инициализации [`apps/postgres-init/init.sql`](apps/postgres-init/init.sql):
+
+**Основные таблицы**:
+- `users` - пользователи системы с аутентификацией
+- `homes` - дома пользователей
+- `rooms` - комнаты в домах
+- `device_types` - типы IoT устройств
+- `devices` - IoT устройства с привязкой к комнатам
+- `sensor_readings` - данные с датчиков (временные ряды)
+- `device_commands` - команды устройствам с отслеживанием статуса
+- `automation_rules` - правила автоматизации
+- `notifications` - система уведомлений
+
+**Ключевые особенности**:
+- **UUID** для всех первичных ключей
+- **JSONB** для гибких конфигураций
+- **Временные метки** с часовыми поясами
+- **Индексы** для оптимизации производительности
+- **Триггеры** для автоматического обновления timestamp
+- **Тестовые данные** для разработки
+
+### 5.4 Service Orchestration
+
+#### Docker Compose Configuration
+Обновлен [`apps/docker-compose.yml`](apps/docker-compose.yml) для полной оркестрации:
+
+**Сервисы**:
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=smarthome
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smarthome"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  temperature-api:
+    build:
+      context: ./temperature-api
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8081
+      - GIN_MODE=release
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    build:
+      context: ./smart_home
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temperature-api:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/smarthome
+      - TEMPERATURE_API_URL=http://temperature-api:8081
+    ports:
+      - "8080:8080"
+```
+
+**Ключевые возможности**:
+- **Health checks** для всех сервисов
+- **Service dependencies** с правильным порядком запуска
+- **Network isolation** с пользовательской сетью
+- **Volume persistence** для данных PostgreSQL
+- **Environment configuration** через переменные окружения
+
+### 5.5 Integration Architecture
+
+#### Service Communication Flow
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Smart Home    │    │  Temperature API │    │   PostgreSQL    │
+│   Application   │◄──►│    Service       │    │    Database     │
+│   (Port 8080)   │    │   (Port 8081)    │    │   (Port 5432)   │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                        │                        │
+         └────────────────────────┼────────────────────────┘
+                                  │
+                        ┌─────────▼─────────┐
+                        │  Docker Network   │
+                        │ smarthome-network │
+                        └───────────────────┘
+```
+
+#### Data Flow Scenarios
+1. **Client Request** → Smart Home App (8080)
+2. **Temperature Query** → Smart Home App → Temperature API (8081)
+3. **Database Operations** → Smart Home App → PostgreSQL (5432)
+4. **Response Chain** → PostgreSQL → Smart Home App → Client
+
+### 5.6 Testing and Validation
+
+#### Manual Testing Commands
+```bash
+# Запуск всех сервисов
+docker-compose up -d
+
+# Проверка состояния сервисов
+curl http://localhost:8081/health
+curl http://localhost:8080/health
+
+# Тестирование Temperature API
+curl "http://localhost:8081/temperature?location=living_room"
+curl "http://localhost:8081/temperature/TEMP001"
+
+# Проверка подключения к базе данных
+docker-compose exec postgres psql -U postgres -d smarthome -c "SELECT COUNT(*) FROM devices;"
+```
+
+#### Expected Results
+**Temperature API Response**:
+```json
+{
+  "value": 22.7,
+  "unit": "°C",
+  "timestamp": "2025-09-15T12:30:00Z",
+  "location": "living_room",
+  "status": "active",
+  "sensor_id": "sensor-living_room-789",
+  "sensor_type": "temperature",
+  "description": "Temperature reading for living_room"
+}
+```
+
+**Database Verification**:
+- Таблицы созданы успешно
+- Тестовые данные загружены
+- Индексы и триггеры функционируют
+- Foreign key constraints работают корректно
+
+### 5.7 Postman Collection Integration
+
+#### Testing Scenarios
+Существующая коллекция [`apps/smarthome-api.postman_collection.json`](apps/smarthome-api.postman_collection.json) может быть использована для тестирования:
+
+1. **Smart Home API endpoints** (порт 8080)
+2. **Temperature API endpoints** (порт 8081)
+3. **Database integration** через основное приложение
+4. **End-to-end workflows** с реальными данными
+
+#### Integration Test Flow
+1. **Аутентификация** в основном приложении
+2. **Получение списка устройств** из базы данных
+3. **Запрос температуры** через Temperature API
+4. **Сохранение данных** в PostgreSQL
+5. **Проверка консистентности** данных
+
+### 5.8 Deployment Instructions
+
+#### Prerequisites
+- Docker Engine 20.10+
+- Docker Compose 2.0+
+- Доступные порты: 8080, 8081, 5432
+
+#### Step-by-Step Deployment
+```bash
+# 1. Клонирование репозитория
+git clone <repository-url>
+cd microservices-iot-ecosystem/apps
+
+# 2. Сборка и запуск сервисов
+docker-compose up --build -d
+
+# 3. Проверка статуса сервисов
+docker-compose ps
+docker-compose logs temperature-api
+docker-compose logs postgres
+
+# 4. Тестирование интеграции
+curl "http://localhost:8081/temperature?location=bedroom"
+curl http://localhost:8080/api/devices
+```
+
+### 5.9 Performance and Security
+
+#### Resource Requirements
+- **Temperature API**: ~50MB RAM, минимальная CPU нагрузка
+- **PostgreSQL**: ~100MB RAM, умеренная I/O нагрузка
+- **Smart Home App**: ~100MB RAM, умеренная CPU нагрузка
+- **Общие требования**: ~250MB RAM минимум
+
+#### Security Implementation
+- **Container Security**: Non-root пользователь, минимальные образы
+- **Network Security**: Изолированная Docker сеть
+- **Database Security**: Подготовленные запросы, хеширование паролей
+- **API Security**: CORS поддержка, валидация входных данных
+
+### 5.10 Monitoring and Observability
+
+#### Health Monitoring
+- **Health endpoints** для проверки состояния сервисов
+- **Docker health checks** для автоматического мониторинга
+- **Structured logging** с Gin framework
+- **Error handling** с детальными сообщениями
+
+#### Future Enhancements
+- **Prometheus metrics** для мониторинга производительности
+- **Distributed tracing** с Jaeger
+- **Centralized logging** с ELK stack
+- **Alerting** при сбоях сервисов
+
+## Заключение по Заданию 5
+
+Задание 5 успешно демонстрирует практическую реализацию концепций микросервисной архитектуры, разработанных в предыдущих заданиях. Temperature API сервис представляет собой рабочий пример:
+
+- **Микросервисной реализации** с современными практиками Go разработки
+- **Docker контейнеризации** с безопасностью и оптимизацией
+- **Service orchestration** с Docker Compose
+- **Database integration** с PostgreSQL
+- **API design** следуя REST принципам
+- **Testing strategy** для проверки интеграции
+
+Реализация служит фундаментом для полной экосистемы Smart Home IoT, показывая как архитектурные решения трансформируются в работающие программные системы.
+
+**Созданные файлы**:
+- [`apps/temperature-api/main.go`](apps/temperature-api/main.go) - основная реализация сервиса
+- [`apps/temperature-api/go.mod`](apps/temperature-api/go.mod) - определение Go модуля
+- [`apps/temperature-api/go.sum`](apps/temperature-api/go.sum) - контрольные суммы зависимостей
+- [`apps/temperature-api/Dockerfile`](apps/temperature-api/Dockerfile) - определение контейнера
+- [`apps/temperature-api/README.md`](apps/temperature-api/README.md) - документация сервиса
+- [`apps/postgres-init/init.sql`](apps/postgres-init/init.sql) - скрипт инициализации БД
+- [`apps/docker-compose.yml`](apps/docker-compose.yml) - обновленная оркестрация сервисов
+- [`docs/task5-docker-implementation.md`](docs/task5-docker-implementation.md) - полная документация
+
 ---
 
 **Файлы документации:**
@@ -817,6 +1133,12 @@ API готовы для реализации и обеспечивают над�
 - `docs/device-service-openapi.yaml` - OpenAPI спецификация Device Service
 - `docs/smart-home-asyncapi.yaml` - AsyncAPI спецификация для событийной архитектуры
 - `docs/task4-summary.md` - итоговый отчет по созданию и документированию API
+
+**Задание 5:**
+- `docs/task5-docker-implementation.md` - детальная документация по реализации Docker и Temperature API
+- `apps/temperature-api/` - полная реализация микросервиса Temperature API
+- `apps/postgres-init/init.sql` - скрипт инициализации базы данных PostgreSQL
+- `apps/docker-compose.yml` - обновленная конфигурация оркестрации сервисов
 
 **Общее:**
 - `docs/README.md` - руководство по работе с документацией
