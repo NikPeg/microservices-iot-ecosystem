@@ -1,4 +1,5 @@
 services:
+  # Database Services
   postgres:
     image: postgres:16-alpine
     container_name: smarthome-postgres
@@ -22,18 +23,149 @@ services:
     networks:
       - smarthome-network
 
+  # Device Service Database
+  device-postgres:
+    image: postgres:16-alpine
+    container_name: smarthome-device-postgres
+    environment:
+      - POSTGRES_DB=device_service_db
+      - POSTGRES_USER=device_user
+      - POSTGRES_PASSWORD=device_password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - device_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U device_user -d device_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  # InfluxDB for telemetry data
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: smarthome-influxdb
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=smart-home
+      - DOCKER_INFLUXDB_INIT_BUCKET=telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=telemetry-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  # Redis for message broker and caching
+  redis:
+    image: redis:7-alpine
+    container_name: smarthome-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  # Microservices
+  device-service:
+    build:
+      context: ./device-service
+      dockerfile: Dockerfile
+    container_name: smarthome-device-service
+    depends_on:
+      device-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_USERNAME=device_user
+      - DB_PASSWORD=device_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONOLITH_URL=http://app:8080
+      - TELEMETRY_SERVICE_URL=http://telemetry-service:8082
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/device-service/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  telemetry-service:
+    build:
+      context: ./telemetry-service
+      dockerfile: Dockerfile
+    container_name: smarthome-telemetry-service
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=telemetry-token
+      - INFLUXDB_ORG=smart-home
+      - INFLUXDB_BUCKET=telemetry
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEVICE_SERVICE_URL=http://device-service:8081
+      - MONOLITH_URL=http://app:8080
+      - LOG_LEVEL=INFO
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  # Legacy Services
   temperature-api:
     build:
       context: ./temperature-api
       dockerfile: Dockerfile
     container_name: smarthome-temperature-api
     environment:
-      - PORT=8081
+      - PORT=8083
       - GIN_MODE=release
     ports:
-      - "8081:8081"
+      - "8083:8083"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -42,6 +174,7 @@ services:
     networks:
       - smarthome-network
 
+  # Main Application (Monolith)
   app:
     build:
       context: ./smart_home
@@ -50,19 +183,47 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      device-service:
+        condition: service_healthy
+      telemetry-service:
+        condition: service_healthy
       temperature-api:
         condition: service_started
+      redis:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/smarthome
-      - TEMPERATURE_API_URL=http://temperature-api:8081
+      - TEMPERATURE_API_URL=http://temperature-api:8083
+      - DEVICE_SERVICE_URL=http://device-service:8081
+      - TELEMETRY_SERVICE_URL=http://telemetry-service:8082
+      - REDIS_URL=redis://redis:6379
     ports:
       - "8080:8080"
     restart: unless-stopped
     networks:
       - smarthome-network
 
+  # Monitoring and Management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: smarthome-redis-commander
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+    profiles:
+      - monitoring
+
 volumes:
   postgres_data:
+  device_postgres_data:
+  influxdb_data:
+  redis_data:
 
 networks:
   smarthome-network:
