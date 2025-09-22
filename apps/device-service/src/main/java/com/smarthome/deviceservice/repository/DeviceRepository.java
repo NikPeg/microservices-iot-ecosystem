@@ -91,15 +91,15 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
      * Find devices with pagination and filtering using native SQL
      */
     @Query(value = "SELECT * FROM devices d WHERE " +
-           "(:homeId::uuid IS NULL OR d.home_id = :homeId::uuid) AND " +
-           "(:roomId::uuid IS NULL OR d.room_id = :roomId::uuid) AND " +
+           "(:homeId IS NULL OR d.home_id = CAST(:homeId AS uuid)) AND " +
+           "(:roomId IS NULL OR d.room_id = CAST(:roomId AS uuid)) AND " +
            "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
-           "(:status IS NULL OR d.status = CAST(:status AS VARCHAR))",
+           "(:status IS NULL OR d.status = :status)",
            countQuery = "SELECT COUNT(*) FROM devices d WHERE " +
-           "(:homeId::uuid IS NULL OR d.home_id = :homeId::uuid) AND " +
-           "(:roomId::uuid IS NULL OR d.room_id = :roomId::uuid) AND " +
+           "(:homeId IS NULL OR d.home_id = CAST(:homeId AS uuid)) AND " +
+           "(:roomId IS NULL OR d.room_id = CAST(:roomId AS uuid)) AND " +
            "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
-           "(:status IS NULL OR d.status = CAST(:status AS VARCHAR))",
+           "(:status IS NULL OR d.status = :status)",
            nativeQuery = true)
     Page<Device> findDevicesWithFilters(
             @Param("homeId") UUID homeId,

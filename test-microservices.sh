@@ -71,6 +71,7 @@ create_test_data() {
         "deviceType": "THERMOSTAT",
         "homeId": "123e4567-e89b-12d3-a456-426614174000",
         "roomId": "123e4567-e89b-12d3-a456-426614174001",
+        "userId": "123e4567-e89b-12d3-a456-426614174002",
         "status": "ONLINE",
         "batteryLevel": 85,
         "firmwareVersion": "1.2.3",
@@ -191,7 +192,7 @@ run_test "Get All Devices" \
     "200"
 
 run_test "Create New Device" \
-    "curl -s -X POST '$DEVICE_SERVICE_URL/device-service/api/v1/devices' -H 'Content-Type: application/json' -d '{\"name\":\"Test Light Switch\",\"deviceType\":\"SWITCH\",\"homeId\":\"123e4567-e89b-12d3-a456-426614174000\",\"roomId\":\"123e4567-e89b-12d3-a456-426614174001\",\"status\":\"ONLINE\",\"batteryLevel\":90,\"firmwareVersion\":\"2.1.0\",\"manufacturer\":\"TestCorp\",\"model\":\"TC-SWITCH-001\"}'" \
+    "curl -s -X POST '$DEVICE_SERVICE_URL/device-service/api/v1/devices' -H 'Content-Type: application/json' -d '{\"name\":\"Test Light Switch\",\"deviceType\":\"SWITCH\",\"homeId\":\"123e4567-e89b-12d3-a456-426614174000\",\"roomId\":\"123e4567-e89b-12d3-a456-426614174001\",\"userId\":\"123e4567-e89b-12d3-a456-426614174002\",\"status\":\"ONLINE\",\"batteryLevel\":90,\"firmwareVersion\":\"2.1.0\",\"manufacturer\":\"TestCorp\",\"model\":\"TC-SWITCH-001\"}'" \
     "201"
 
 if [ ! -z "$DEVICE_ID" ]; then

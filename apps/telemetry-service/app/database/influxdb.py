@@ -246,6 +246,7 @@ class InfluxDBClient:
               |> range(start: {start_time}, stop: {end_time})
               |> filter(fn: (r) => r["device_id"] == "{device_id}")
               |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+              |> filter(fn: (r) => r["_field"] == "value")
               |> aggregateWindow(every: {window}, fn: {aggregation}, createEmpty: false)
             '''
 
