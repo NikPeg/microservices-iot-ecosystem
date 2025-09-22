@@ -87,27 +87,7 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
      */
     long countByHomeId(UUID homeId);
 
-    /**
-     * Find devices with pagination and filtering using native SQL
-     */
-    @Query(value = "SELECT * FROM devices d WHERE " +
-           "(:homeId IS NULL OR d.home_id = CAST(:homeId AS uuid)) AND " +
-           "(:roomId IS NULL OR d.room_id = CAST(:roomId AS uuid)) AND " +
-           "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
-           "(:status IS NULL OR d.status = :status)",
-           countQuery = "SELECT COUNT(*) FROM devices d WHERE " +
-           "(:homeId IS NULL OR d.home_id = CAST(:homeId AS uuid)) AND " +
-           "(:roomId IS NULL OR d.room_id = CAST(:roomId AS uuid)) AND " +
-           "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
-           "(:status IS NULL OR d.status = :status)",
-           nativeQuery = true)
-    Page<Device> findDevicesWithFilters(
-            @Param("homeId") UUID homeId,
-            @Param("roomId") UUID roomId,
-            @Param("deviceType") String deviceType,
-            @Param("status") String status,
-            Pageable pageable
-    );
+    // Removed problematic findDevicesWithFilters method - using manual filtering in service instead
 
     /**
      * Find all devices with pagination (no filters)
