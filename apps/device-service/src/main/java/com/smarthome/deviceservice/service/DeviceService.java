@@ -46,8 +46,10 @@ public class DeviceService {
             throw new IllegalArgumentException("Device with MAC address already exists: " + device.getMacAddress());
         }
 
-        // Set initial status
-        device.setStatus(Device.DeviceStatus.OFFLINE);
+        // Set initial status - use provided status or default to OFFLINE
+        if (device.getStatus() == null) {
+            device.setStatus(Device.DeviceStatus.OFFLINE);
+        }
         device.setLastSeen(LocalDateTime.now());
 
         Device savedDevice = deviceRepository.save(device);

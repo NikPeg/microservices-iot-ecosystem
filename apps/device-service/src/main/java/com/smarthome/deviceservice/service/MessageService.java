@@ -56,9 +56,9 @@ public class MessageService {
         event.put("oldStatus", oldStatus.toString());
         event.put("newStatus", newStatus.toString());
         event.put("statusChangedAt", LocalDateTime.now().toString());
-        
+
         publishEvent(DEVICE_EVENTS_CHANNEL, event);
-        log.info("Published DeviceStatusChanged event for device: {} from {} to {}", 
+        log.info("Published DeviceStatusChanged event for device: {} from {} to {}",
                 device.getId(), oldStatus, newStatus);
     }
 
@@ -130,7 +130,7 @@ public class MessageService {
         event.put("unit", unit);
         event.put("timestamp", LocalDateTime.now().toString());
         event.put("source", "device-service");
-        
+
         publishEvent(TELEMETRY_CHANNEL, event);
         log.info("Published TelemetryDataReceived event for device: {}", deviceId);
     }
@@ -152,7 +152,7 @@ public class MessageService {
         event.put("userId", device.getUserId().toString());
         event.put("timestamp", LocalDateTime.now().toString());
         event.put("source", "device-service");
-        
+
         return event;
     }
 
@@ -169,12 +169,12 @@ public class MessageService {
         event.put("parameters", command.getParameters());
         event.put("status", command.getStatus().toString());
         event.put("issuedBy", command.getIssuedBy() != null ? command.getIssuedBy().toString() : null);
-        event.put("sentAt", command.getSentAt().toString());
+        event.put("sentAt", command.getSentAt() != null ? command.getSentAt().toString() : null);
         event.put("acknowledgedAt", command.getAcknowledgedAt() != null ? command.getAcknowledgedAt().toString() : null);
         event.put("completedAt", command.getCompletedAt() != null ? command.getCompletedAt().toString() : null);
         event.put("timestamp", LocalDateTime.now().toString());
         event.put("source", "device-service");
-        
+
         return event;
     }
 
@@ -203,7 +203,7 @@ public class MessageService {
         event.put("timestamp", LocalDateTime.now().toString());
         event.put("source", "device-service");
         event.putAll(data);
-        
+
         publishEvent(channel, event);
         log.info("Published custom event {} to channel: {}", eventType, channel);
     }
@@ -215,7 +215,7 @@ public class MessageService {
         Map<String, Object> event = createBaseDeviceEvent("DeviceHeartbeat", device);
         event.put("lastSeen", device.getLastSeen() != null ? device.getLastSeen().toString() : null);
         event.put("batteryLevel", device.getBatteryLevel());
-        
+
         publishEvent(DEVICE_EVENTS_CHANNEL, event);
         log.debug("Published DeviceHeartbeat event for device: {}", device.getId());
     }
@@ -227,9 +227,9 @@ public class MessageService {
         Map<String, Object> event = createBaseDeviceEvent("DeviceLowBatteryAlert", device);
         event.put("batteryLevel", device.getBatteryLevel());
         event.put("alertLevel", "WARNING");
-        
+
         publishEvent(DEVICE_EVENTS_CHANNEL, event);
-        log.warn("Published DeviceLowBatteryAlert event for device: {} (battery: {}%)", 
+        log.warn("Published DeviceLowBatteryAlert event for device: {} (battery: {}%)",
                 device.getId(), device.getBatteryLevel());
     }
 
@@ -240,9 +240,9 @@ public class MessageService {
         Map<String, Object> event = createBaseDeviceEvent("DeviceOfflineAlert", device);
         event.put("lastSeen", lastSeen != null ? lastSeen.toString() : null);
         event.put("alertLevel", "ERROR");
-        
+
         publishEvent(DEVICE_EVENTS_CHANNEL, event);
-        log.warn("Published DeviceOfflineAlert event for device: {} (last seen: {})", 
+        log.warn("Published DeviceOfflineAlert event for device: {} (last seen: {})",
                 device.getId(), lastSeen);
     }
 }
