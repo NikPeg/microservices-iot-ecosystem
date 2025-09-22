@@ -11,6 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -37,9 +38,9 @@ USER appuser
 # Expose port
 EXPOSE 8082
 
-# Health check using Python
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8082/health')" || exit 1
+# Health check using curl
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+    CMD curl -f http://localhost:8082/health || exit 1
 
 # Environment variables with defaults
 ENV PYTHONPATH=/app \
@@ -51,5 +52,5 @@ ENV PYTHONPATH=/app \
     REDIS_PORT=6379 \
     LOG_LEVEL=INFO
 
-# Run the full application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8082"]
+# Run the optimized application
+CMD ["python", "-m", "uvicorn", "app.main_optimized:app", "--host", "0.0.0.0", "--port", "8082", "--timeout-keep-alive", "5"]
