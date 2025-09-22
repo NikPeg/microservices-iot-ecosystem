@@ -6,9 +6,9 @@ server:
 spring:
   application:
     name: device-service
-  
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/device_service_db
+    url: jdbc:postgresql://${DB_HOST:device-postgres}:${DB_PORT:5432}/${DB_NAME:device_service_db}
     username: ${DB_USERNAME:device_user}
     password: ${DB_PASSWORD:device_password}
     driver-class-name: org.postgresql.Driver
@@ -86,16 +86,16 @@ app:
       device-events: "device.events"
       device-commands: "device.commands"
       telemetry-data: "telemetry.data"
-  
+
   device:
     command:
       timeout-minutes: 5
       max-retries: 3
-    
+
     heartbeat:
       interval-seconds: 30
       timeout-seconds: 120
-    
+
     battery:
       low-threshold: 20
       critical-threshold: 10
@@ -115,7 +115,7 @@ integration:
     base-url: ${MONOLITH_URL:http://localhost:8080}
     timeout: 5000
     retry-attempts: 3
-  
+
   telemetry-service:
     base-url: ${TELEMETRY_SERVICE_URL:http://localhost:8082}
     timeout: 3000

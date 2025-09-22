@@ -103,6 +103,9 @@ services:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=device-postgres
+      - DB_PORT=5432
+      - DB_NAME=${DEVICE_POSTGRES_DB:-device_service_db}
       - DB_USERNAME=${DEVICE_POSTGRES_USER:-device_user}
       - DB_PASSWORD=${DEVICE_POSTGRES_PASSWORD:-device_password}
       - REDIS_HOST=redis
