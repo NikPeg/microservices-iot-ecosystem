@@ -153,11 +153,57 @@ Locations - название комнаты, sensorId - идентификато
 
 # **Задание 6. Разработка MVP**
 
-Необходимо создать новые микросервисы и обеспечить их интеграции с существующим монолитом для плавного перехода к микросервисной архитектуре. 
+Необходимо создать новые микросервисы и обеспечить их интеграции с существующим монолитом для плавного перехода к микросервисной архитектуре.
 
 ### **Что нужно сделать**
 
 1. Создайте новые микросервисы для управления телеметрией и устройствами (с простейшей логикой), которые будут интегрированы с существующим монолитным приложением. Каждый микросервис на своем ООП языке.
-2. Обеспечьте взаимодействие между микросервисами и монолитом (при желании с помощью брокера сообщений), чтобы постепенно перенести функциональность из монолита в микросервисы. 
+2. Обеспечьте взаимодействие между микросервисами и монолитом (при желании с помощью брокера сообщений), чтобы постепенно перенести функциональность из монолита в микросервисы.
 
-В результате у вас должны быть созданы Dockerfiles и docker-compose для запуска микросервисов. 
+В результате у вас должны быть созданы Dockerfiles и docker-compose для запуска микросервисов.
+
+# Настройка окружения
+
+## Конфигурация переменных среды
+
+Проект использует файлы переменных среды для конфигурации различных сервисов.
+
+### Настройка .env файла
+
+1. Скопируйте файл `apps/.env.example` в `apps/.env`:
+   ```bash
+   cp apps/.env.example apps/.env
+   ```
+
+2. Отредактируйте `apps/.env` файл, заменив placeholder значения на реальные:
+   - `POSTGRES_PASSWORD` - пароль для основной базы данных PostgreSQL
+   - `DEVICE_POSTGRES_PASSWORD` - пароль для базы данных Device Service
+   - `INFLUXDB_ADMIN_PASSWORD` - пароль администратора InfluxDB
+   - `INFLUXDB_ADMIN_TOKEN` - токен доступа к InfluxDB
+
+### Важно
+
+⚠️ **Файл `.env` содержит конфиденциальную информацию и не должен попадать в систему контроля версий.**
+
+Файл `.env` добавлен в `.gitignore` для предотвращения случайного коммита. Используйте `.env.example` как шаблон для создания локального `.env` файла.
+
+### Структура переменных среды
+
+```bash
+# Database Configuration
+POSTGRES_DB=smarthome
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_postgres_password
+
+# Device Service Database Configuration
+DEVICE_POSTGRES_DB=device_service_db
+DEVICE_POSTGRES_USER=device_user
+DEVICE_POSTGRES_PASSWORD=your_secure_device_password
+
+# InfluxDB Configuration
+INFLUXDB_ADMIN_USER=admin
+INFLUXDB_ADMIN_PASSWORD=your_secure_influxdb_password
+INFLUXDB_ORG=smart-home
+INFLUXDB_BUCKET=telemetry
+INFLUXDB_ADMIN_TOKEN=your_secure_influxdb_token
+```

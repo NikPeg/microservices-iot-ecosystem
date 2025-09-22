@@ -179,7 +179,7 @@ ON CONFLICT (username) DO NOTHING;
 DO $$
 DECLARE
     admin_user_id UUID;
-    home_id UUID;
+    sample_home_id UUID;
     living_room_id UUID;
     bedroom_id UUID;
     kitchen_id UUID;
@@ -195,24 +195,24 @@ BEGIN
     INSERT INTO homes (name, address, owner_id) VALUES
     ('Demo Smart Home', '123 Smart Street, Tech City', admin_user_id)
     ON CONFLICT DO NOTHING
-    RETURNING id INTO home_id;
+    RETURNING id INTO sample_home_id;
 
     -- If home already exists, get its ID
-    IF home_id IS NULL THEN
-        SELECT id INTO home_id FROM homes WHERE owner_id = admin_user_id LIMIT 1;
+    IF sample_home_id IS NULL THEN
+        SELECT id INTO sample_home_id FROM homes WHERE owner_id = admin_user_id LIMIT 1;
     END IF;
 
     -- Insert sample rooms
     INSERT INTO rooms (name, home_id, room_type) VALUES
-    ('Living Room', home_id, 'living_room'),
-    ('Master Bedroom', home_id, 'bedroom'),
-    ('Kitchen', home_id, 'kitchen')
+    ('Living Room', sample_home_id, 'living_room'),
+    ('Master Bedroom', sample_home_id, 'bedroom'),
+    ('Kitchen', sample_home_id, 'kitchen')
     ON CONFLICT DO NOTHING;
 
     -- Get room IDs
-    SELECT id INTO living_room_id FROM rooms WHERE name = 'Living Room' AND home_id = home_id;
-    SELECT id INTO bedroom_id FROM rooms WHERE name = 'Master Bedroom' AND home_id = home_id;
-    SELECT id INTO kitchen_id FROM rooms WHERE name = 'Kitchen' AND home_id = home_id;
+    SELECT id INTO living_room_id FROM rooms WHERE name = 'Living Room' AND home_id = sample_home_id;
+    SELECT id INTO bedroom_id FROM rooms WHERE name = 'Master Bedroom' AND home_id = sample_home_id;
+    SELECT id INTO kitchen_id FROM rooms WHERE name = 'Kitchen' AND home_id = sample_home_id;
 
     -- Get device type IDs
     SELECT id INTO temp_sensor_type_id FROM device_types WHERE name = 'Temperature Sensor';
