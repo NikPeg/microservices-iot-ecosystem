@@ -39,9 +39,9 @@ message_consumer = None
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     global influxdb_client, redis_client, telemetry_service, message_consumer
-    
+
     logger.info("Starting Telemetry Service...")
-    
+
     try:
         # Initialize database clients
         influxdb_client = InfluxDBClient(
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         )
         await influxdb_client.connect()
         logger.info("Connected to InfluxDB")
-        
+
         redis_client = RedisClient(
             host=settings.redis_host,
             port=settings.redis_port,
@@ -61,38 +61,33 @@ async def lifespan(app: FastAPI):
         )
         await redis_client.connect()
         logger.info("Connected to Redis")
-        
+
         # Initialize services
         telemetry_service = TelemetryService(influxdb_client, redis_client)
-        
+
         # Start message consumer
         message_consumer = MessageConsumer(redis_client, telemetry_service)
-        consumer_task = asyncio.create_task(message_consumer.start_consuming())
+        await message_consumer.start_consuming()
         logger.info("Started message consumer")
-        
+
         yield
-        
+
     except Exception as e:
         logger.error("Failed to initialize services", error=str(e))
         raise
     finally:
         logger.info("Shutting down Telemetry Service...")
-        
+
         # Stop message consumer
         if message_consumer:
             await message_consumer.stop_consuming()
-            consumer_task.cancel()
-            try:
-                await consumer_task
-            except asyncio.CancelledError:
-                pass
-        
+
         # Close database connections
         if influxdb_client:
             await influxdb_client.close()
         if redis_client:
             await redis_client.close()
-        
+
         logger.info("Telemetry Service shutdown complete")
 
 
@@ -135,11 +130,11 @@ async def health_check():
         # Check InfluxDB connection
         if influxdb_client:
             await influxdb_client.ping()
-        
+
         # Check Redis connection
         if redis_client:
             await redis_client.ping()
-        
+
         return {
             "status": "healthy",
             "service": "telemetry-service",
@@ -160,10 +155,10 @@ async def store_telemetry(
     """Store telemetry data"""
     try:
         logger.info("Received telemetry data", device_id=str(telemetry_data.device_id))
-        
+
         # Store data asynchronously
         background_tasks.add_task(service.store_telemetry, telemetry_data)
-        
+
         return {
             "status": "accepted",
             "message": "Telemetry data queued for processing",
@@ -184,10 +179,10 @@ async def store_telemetry_batch(
     """Store multiple telemetry data points"""
     try:
         logger.info("Received telemetry batch", count=len(telemetry_batch))
-        
+
         # Store batch asynchronously
         background_tasks.add_task(service.store_telemetry_batch, telemetry_batch)
-        
+
         return {
             "status": "accepted",
             "message": f"Batch of {len(telemetry_batch)} telemetry records queued for processing",
@@ -210,7 +205,7 @@ async def get_device_telemetry(
     """Get telemetry data for a specific device"""
     try:
         logger.info("Querying telemetry data", device_id=device_id)
-        
+
         query = TelemetryQuery(
             device_id=device_id,
             start_time=start_time,
@@ -218,10 +213,10 @@ async def get_device_telemetry(
             measurement=measurement,
             limit=limit
         )
-        
+
         result = await service.query_telemetry(query)
         return result
-        
+
     except Exception as e:
         logger.error("Failed to query telemetry data", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to query telemetry data")
@@ -236,10 +231,10 @@ async def get_latest_telemetry(
     """Get latest telemetry data for a device"""
     try:
         logger.info("Querying latest telemetry", device_id=device_id)
-        
+
         result = await service.get_latest_telemetry(device_id, measurement)
         return result
-        
+
     except Exception as e:
         logger.error("Failed to get latest telemetry", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get latest telemetry")
@@ -258,7 +253,7 @@ async def get_aggregated_telemetry(
     """Get aggregated telemetry data"""
     try:
         logger.info("Querying aggregated telemetry", device_id=device_id, aggregation=aggregation)
-        
+
         result = await service.get_aggregated_telemetry(
             device_id=device_id,
             start_time=start_time,
@@ -268,7 +263,7 @@ async def get_aggregated_telemetry(
             window=window
         )
         return result
-        
+
     except Exception as e:
         logger.error("Failed to get aggregated telemetry", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get aggregated telemetry")
@@ -285,7 +280,7 @@ async def get_device_alerts(
     """Get alerts for a specific device"""
     try:
         logger.info("Querying device alerts", device_id=device_id)
-        
+
         alerts = await service.get_device_alerts(
             device_id=device_id,
             start_time=start_time,
@@ -293,7 +288,7 @@ async def get_device_alerts(
             severity=severity
         )
         return alerts
-        
+
     except Exception as e:
         logger.error("Failed to get device alerts", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get device alerts")
@@ -309,16 +304,16 @@ async def delete_device_telemetry(
     """Delete telemetry data for a device within time range"""
     try:
         logger.info("Deleting telemetry data", device_id=device_id)
-        
+
         deleted_count = await service.delete_telemetry(device_id, start_time, end_time)
-        
+
         return {
             "status": "success",
             "message": f"Deleted {deleted_count} telemetry records",
             "device_id": device_id,
             "deleted_count": deleted_count
         }
-        
+
     except Exception as e:
         logger.error("Failed to delete telemetry data", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to delete telemetry data")
