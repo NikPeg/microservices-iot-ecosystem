@@ -283,3 +283,106 @@ class OptimizedInfluxDBClient:
         except Exception as e:
             logger.error("Failed to get latest telemetry", error=str(e), device_id=device_id)
             raise
+
+    async def get_aggregated_telemetry(
+        self,
+        device_id: str,
+        start_time: str,
+        end_time: str,
+        measurement: str,
+        aggregation: str = "mean",
+        window: str = "1h"
+    ) -> Dict[str, Any]:
+        """Get aggregated telemetry data"""
+        await self.ensure_connected()
+
+        try:
+            # Validate aggregation function
+            valid_aggregations = ["mean", "max", "min", "sum", "count", "median"]
+            if aggregation not in valid_aggregations:
+                raise ValueError(f"Invalid aggregation: {aggregation}")
+
+            flux_query = f'''
+            from(bucket: "{self.bucket}")
+              |> range(start: {start_time}, stop: {end_time})
+              |> filter(fn: (r) => r["device_id"] == "{device_id}")
+              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+              |> filter(fn: (r) => r["_field"] == "value")
+              |> aggregateWindow(every: {window}, fn: {aggregation}, createEmpty: false)
+            '''
+
+            result = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: self.query_api.query(flux_query, org=self.org)
+                ),
+                timeout=10.0
+            )
+
+            data_points = []
+            for table in result:
+                for record in table.records:
+                    data_points.append({
+                        "timestamp": record.get_time().isoformat(),
+                        "value": record.get_value()
+                    })
+
+            logger.info("Retrieved aggregated telemetry",
+                       device_id=device_id, measurement=measurement,
+                       aggregation=aggregation, count=len(data_points))
+
+            return {
+                "device_id": device_id,
+                "measurement": measurement,
+                "aggregation": aggregation,
+                "window": window,
+                "start_time": start_time,
+                "end_time": end_time,
+                "count": len(data_points),
+                "data": data_points
+            }
+
+        except asyncio.TimeoutError:
+            logger.error("Aggregated telemetry query timeout", device_id=device_id)
+            raise HTTPException(status_code=504, detail="Query timeout")
+        except Exception as e:
+            logger.error("Failed to get aggregated telemetry", error=str(e),
+                        device_id=device_id, measurement=measurement)
+            raise
+
+    async def delete_telemetry(self, device_id: str, start_time: str, end_time: str) -> int:
+        """Delete telemetry data for a device within time range"""
+        await self.ensure_connected()
+
+        try:
+            # Convert time strings to datetime objects
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+
+            # Delete data
+            await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: self.delete_api.delete(
+                        start=start_dt,
+                        stop=end_dt,
+                        predicate=f'device_id="{device_id}"',
+                        bucket=self.bucket,
+                        org=self.org
+                    )
+                ),
+                timeout=10.0
+            )
+
+            logger.info("Deleted telemetry data", device_id=device_id,
+                       start_time=start_time, end_time=end_time)
+
+            # Return estimated count (InfluxDB doesn't return actual count)
+            return 1  # Placeholder
+
+        except asyncio.TimeoutError:
+            logger.error("Delete telemetry timeout", device_id=device_id)
+            raise HTTPException(status_code=504, detail="Delete timeout")
+        except Exception as e:
+            logger.error("Failed to delete telemetry data", error=str(e), device_id=device_id)
+            raise

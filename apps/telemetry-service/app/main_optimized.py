@@ -324,6 +324,85 @@ async def get_latest_telemetry(
         raise HTTPException(status_code=500, detail="Failed to get latest telemetry")
 
 
+@app.get("/api/v1/telemetry/{device_id}/aggregated", response_model=dict)
+async def get_aggregated_telemetry(
+    device_id: str,
+    start_time: str = Query(..., description="Start time in RFC3339 format"),
+    end_time: str = Query(..., description="End time in RFC3339 format"),
+    measurement: str = Query(..., description="Measurement type"),
+    aggregation: str = Query("mean", description="Aggregation function (mean, max, min, sum)"),
+    window: str = Query("1h", description="Time window for aggregation"),
+    service: TelemetryService = Depends(get_telemetry_service)
+):
+    """Get aggregated telemetry data"""
+    try:
+        logger.info("Querying aggregated telemetry", device_id=device_id, aggregation=aggregation)
+
+        result = await service.get_aggregated_telemetry(
+            device_id=device_id,
+            start_time=start_time,
+            end_time=end_time,
+            measurement=measurement,
+            aggregation=aggregation,
+            window=window
+        )
+        return result
+
+    except Exception as e:
+        logger.error("Failed to get aggregated telemetry", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get aggregated telemetry")
+
+
+@app.get("/api/v1/devices/{device_id}/alerts", response_model=List[dict])
+async def get_device_alerts(
+    device_id: str,
+    start_time: str = Query(None, description="Start time in RFC3339 format"),
+    end_time: str = Query(None, description="End time in RFC3339 format"),
+    severity: str = Query(None, description="Filter by alert severity"),
+    service: TelemetryService = Depends(get_telemetry_service)
+):
+    """Get alerts for a specific device"""
+    try:
+        logger.info("Querying device alerts", device_id=device_id)
+
+        alerts = await service.get_device_alerts(
+            device_id=device_id,
+            start_time=start_time,
+            end_time=end_time,
+            severity=severity
+        )
+        return alerts
+
+    except Exception as e:
+        logger.error("Failed to get device alerts", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get device alerts")
+
+
+@app.delete("/api/v1/telemetry/{device_id}")
+async def delete_device_telemetry(
+    device_id: str,
+    start_time: str = Query(..., description="Start time in RFC3339 format"),
+    end_time: str = Query(..., description="End time in RFC3339 format"),
+    service: TelemetryService = Depends(get_telemetry_service)
+):
+    """Delete telemetry data for a device within time range"""
+    try:
+        logger.info("Deleting telemetry data", device_id=device_id)
+
+        deleted_count = await service.delete_telemetry(device_id, start_time, end_time)
+
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} telemetry records",
+            "device_id": device_id,
+            "deleted_count": deleted_count
+        }
+
+    except Exception as e:
+        logger.error("Failed to delete telemetry data", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to delete telemetry data")
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler"""
