@@ -88,20 +88,31 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
     long countByHomeId(UUID homeId);
 
     /**
-     * Find devices with pagination and filtering
+     * Find devices with pagination and filtering using native SQL
      */
-    @Query("SELECT d FROM Device d WHERE " +
-           "(:homeId IS NULL OR d.homeId = :homeId) AND " +
-           "(:roomId IS NULL OR d.roomId = :roomId) AND " +
-           "(:deviceType IS NULL OR d.deviceType = :deviceType) AND " +
-           "(:status IS NULL OR d.status = :status)")
+    @Query(value = "SELECT * FROM devices d WHERE " +
+           "(:homeId::uuid IS NULL OR d.home_id = :homeId::uuid) AND " +
+           "(:roomId::uuid IS NULL OR d.room_id = :roomId::uuid) AND " +
+           "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
+           "(:status IS NULL OR d.status = CAST(:status AS VARCHAR))",
+           countQuery = "SELECT COUNT(*) FROM devices d WHERE " +
+           "(:homeId::uuid IS NULL OR d.home_id = :homeId::uuid) AND " +
+           "(:roomId::uuid IS NULL OR d.room_id = :roomId::uuid) AND " +
+           "(:deviceType IS NULL OR d.device_type = :deviceType) AND " +
+           "(:status IS NULL OR d.status = CAST(:status AS VARCHAR))",
+           nativeQuery = true)
     Page<Device> findDevicesWithFilters(
             @Param("homeId") UUID homeId,
             @Param("roomId") UUID roomId,
             @Param("deviceType") String deviceType,
-            @Param("status") Device.DeviceStatus status,
+            @Param("status") String status,
             Pageable pageable
     );
+
+    /**
+     * Find all devices with pagination (no filters)
+     */
+    Page<Device> findAll(Pageable pageable);
 
     /**
      * Search devices by name (case-insensitive)
@@ -128,7 +139,7 @@ public interface DeviceRepository extends JpaRepository<Device, UUID> {
      * Update device status by ID
      */
     @Query("UPDATE Device d SET d.status = :status, d.lastSeen = :lastSeen WHERE d.id = :deviceId")
-    void updateDeviceStatus(@Param("deviceId") UUID deviceId, 
-                           @Param("status") Device.DeviceStatus status, 
+    void updateDeviceStatus(@Param("deviceId") UUID deviceId,
+                           @Param("status") Device.DeviceStatus status,
                            @Param("lastSeen") LocalDateTime lastSeen);
 }

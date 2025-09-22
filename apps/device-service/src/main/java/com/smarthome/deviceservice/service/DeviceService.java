@@ -34,27 +34,27 @@ public class DeviceService {
      */
     public Device registerDevice(Device device) {
         log.info("Registering new device: {}", device.getName());
-        
+
         // Validate unique constraints
-        if (device.getSerialNumber() != null && 
+        if (device.getSerialNumber() != null &&
             deviceRepository.existsBySerialNumber(device.getSerialNumber())) {
             throw new IllegalArgumentException("Device with serial number already exists: " + device.getSerialNumber());
         }
-        
-        if (device.getMacAddress() != null && 
+
+        if (device.getMacAddress() != null &&
             deviceRepository.existsByMacAddress(device.getMacAddress())) {
             throw new IllegalArgumentException("Device with MAC address already exists: " + device.getMacAddress());
         }
-        
+
         // Set initial status
         device.setStatus(Device.DeviceStatus.OFFLINE);
         device.setLastSeen(LocalDateTime.now());
-        
+
         Device savedDevice = deviceRepository.save(device);
-        
+
         // Publish device registered event
         messageService.publishDeviceRegisteredEvent(savedDevice);
-        
+
         log.info("Device registered successfully with ID: {}", savedDevice.getId());
         return savedDevice;
     }
@@ -79,9 +79,15 @@ public class DeviceService {
      * Get devices with filters and pagination
      */
     @Transactional(readOnly = true)
-    public Page<Device> getDevicesWithFilters(UUID homeId, UUID roomId, String deviceType, 
+    public Page<Device> getDevicesWithFilters(UUID homeId, UUID roomId, String deviceType,
                                             Device.DeviceStatus status, Pageable pageable) {
-        return deviceRepository.findDevicesWithFilters(homeId, roomId, deviceType, status, pageable);
+        // If all filters are null, use findAll to avoid PostgreSQL parameter type issues
+        if (homeId == null && roomId == null && deviceType == null && status == null) {
+            return deviceRepository.findAll(pageable);
+        }
+        // Convert enum to string for native query
+        String statusString = status != null ? status.name() : null;
+        return deviceRepository.findDevicesWithFilters(homeId, roomId, deviceType, statusString, pageable);
     }
 
     /**
@@ -89,10 +95,10 @@ public class DeviceService {
      */
     public Device updateDevice(UUID deviceId, Device deviceUpdate) {
         log.info("Updating device: {}", deviceId);
-        
+
         Device existingDevice = deviceRepository.findById(deviceId)
             .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-        
+
         // Update allowed fields
         if (deviceUpdate.getName() != null) {
             existingDevice.setName(deviceUpdate.getName());
@@ -106,12 +112,12 @@ public class DeviceService {
         if (deviceUpdate.getFirmwareVersion() != null) {
             existingDevice.setFirmwareVersion(deviceUpdate.getFirmwareVersion());
         }
-        
+
         Device savedDevice = deviceRepository.save(existingDevice);
-        
+
         // Publish device updated event
         messageService.publishDeviceUpdatedEvent(savedDevice);
-        
+
         log.info("Device updated successfully: {}", deviceId);
         return savedDevice;
     }
@@ -121,20 +127,20 @@ public class DeviceService {
      */
     public Device updateDeviceStatus(UUID deviceId, Device.DeviceStatus status) {
         log.info("Updating device status: {} to {}", deviceId, status);
-        
+
         Device device = deviceRepository.findById(deviceId)
             .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-        
+
         Device.DeviceStatus oldStatus = device.getStatus();
         device.updateStatus(status);
-        
+
         Device savedDevice = deviceRepository.save(device);
-        
+
         // Publish status change event if status actually changed
         if (!oldStatus.equals(status)) {
             messageService.publishDeviceStatusChangedEvent(savedDevice, oldStatus, status);
         }
-        
+
         log.info("Device status updated: {} from {} to {}", deviceId, oldStatus, status);
         return savedDevice;
     }
@@ -144,22 +150,22 @@ public class DeviceService {
      */
     public void deleteDevice(UUID deviceId) {
         log.info("Deleting device: {}", deviceId);
-        
+
         Device device = deviceRepository.findById(deviceId)
             .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-        
+
         // Cancel any pending commands
         List<DeviceCommand> pendingCommands = commandRepository.findPendingCommandsByDeviceId(deviceId);
         pendingCommands.forEach(command -> {
             command.setStatus(DeviceCommand.CommandStatus.CANCELLED);
             commandRepository.save(command);
         });
-        
+
         deviceRepository.delete(device);
-        
+
         // Publish device deleted event
         messageService.publishDeviceDeletedEvent(device);
-        
+
         log.info("Device deleted successfully: {}", deviceId);
     }
 
@@ -168,14 +174,14 @@ public class DeviceService {
      */
     public DeviceCommand sendCommand(UUID deviceId, String commandType, String parameters, UUID issuedBy) {
         log.info("Sending command {} to device: {}", commandType, deviceId);
-        
+
         Device device = deviceRepository.findById(deviceId)
             .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-        
+
         if (!device.isOnline()) {
             throw new IllegalStateException("Cannot send command to offline device: " + deviceId);
         }
-        
+
         DeviceCommand command = DeviceCommand.builder()
             .deviceId(deviceId)
             .commandType(commandType)
@@ -183,12 +189,12 @@ public class DeviceService {
             .issuedBy(issuedBy)
             .status(DeviceCommand.CommandStatus.PENDING)
             .build();
-        
+
         DeviceCommand savedCommand = commandRepository.save(command);
-        
+
         // Publish command created event
         messageService.publishDeviceCommandCreatedEvent(savedCommand);
-        
+
         log.info("Command created with ID: {}", savedCommand.getId());
         return savedCommand;
     }
@@ -214,16 +220,16 @@ public class DeviceService {
      */
     public DeviceCommand acknowledgeCommand(UUID commandId) {
         log.info("Acknowledging command: {}", commandId);
-        
+
         DeviceCommand command = commandRepository.findById(commandId)
             .orElseThrow(() -> new IllegalArgumentException("Command not found: " + commandId));
-        
+
         command.acknowledge();
         DeviceCommand savedCommand = commandRepository.save(command);
-        
+
         // Publish command acknowledged event
         messageService.publishDeviceCommandAcknowledgedEvent(savedCommand);
-        
+
         log.info("Command acknowledged: {}", commandId);
         return savedCommand;
     }
@@ -233,16 +239,16 @@ public class DeviceService {
      */
     public DeviceCommand completeCommand(UUID commandId) {
         log.info("Completing command: {}", commandId);
-        
+
         DeviceCommand command = commandRepository.findById(commandId)
             .orElseThrow(() -> new IllegalArgumentException("Command not found: " + commandId));
-        
+
         command.complete();
         DeviceCommand savedCommand = commandRepository.save(command);
-        
+
         // Publish command completed event
         messageService.publishDeviceCommandCompletedEvent(savedCommand);
-        
+
         log.info("Command completed: {}", commandId);
         return savedCommand;
     }
@@ -252,16 +258,16 @@ public class DeviceService {
      */
     public DeviceCommand failCommand(UUID commandId, String errorMessage) {
         log.info("Failing command: {} with error: {}", commandId, errorMessage);
-        
+
         DeviceCommand command = commandRepository.findById(commandId)
             .orElseThrow(() -> new IllegalArgumentException("Command not found: " + commandId));
-        
+
         command.fail(errorMessage);
         DeviceCommand savedCommand = commandRepository.save(command);
-        
+
         // Publish command failed event
         messageService.publishDeviceCommandFailedEvent(savedCommand);
-        
+
         log.info("Command failed: {}", commandId);
         return savedCommand;
     }
@@ -287,15 +293,15 @@ public class DeviceService {
      */
     public void processExpiredCommands() {
         log.info("Processing expired commands");
-        
+
         List<DeviceCommand> expiredCommands = commandRepository.findExpiredCommands(LocalDateTime.now());
-        
+
         expiredCommands.forEach(command -> {
             command.expire();
             commandRepository.save(command);
             messageService.publishDeviceCommandExpiredEvent(command);
         });
-        
+
         log.info("Processed {} expired commands", expiredCommands.size());
     }
 
