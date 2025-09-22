@@ -118,9 +118,17 @@ func getTemperatureBySensorID(c *gin.Context) {
 		return
 	}
 
+	// Check if sensor ID is valid
+	if !isValidSensorID(sensorID) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "sensor not found",
+		})
+		return
+	}
+
 	// Extract location from sensor ID or use default
 	location := extractLocationFromSensorID(sensorID)
-	
+
 	// Generate random temperature
 	temperature := generateTemperatureForLocation(location)
 
@@ -186,6 +194,56 @@ func generateTemperatureForLocation(location string) float64 {
 	return float64(int(temperature*10)) / 10
 }
 
+// isValidSensorID checks if a sensor ID is valid
+func isValidSensorID(sensorID string) bool {
+	// Define valid sensor ID patterns
+	validSensorIDs := []string{
+		"sensor-living_room-001",
+		"sensor-bedroom-001",
+		"sensor-kitchen-001",
+		"sensor-bathroom-001",
+		"sensor-garage-001",
+		"sensor-outdoor-001",
+	}
+
+	// Check if sensor ID matches any valid pattern
+	for _, validID := range validSensorIDs {
+		if sensorID == validID {
+			return true
+		}
+	}
+
+	// Also accept sensor IDs that follow the pattern sensor-{location}-{number}
+	if len(sensorID) > 7 && sensorID[:7] == "sensor-" {
+		parts := sensorID[7:] // Remove "sensor-" prefix
+		// Find the last dash
+		lastDashIndex := -1
+		for i := len(parts) - 1; i >= 0; i-- {
+			if parts[i] == '-' {
+				lastDashIndex = i
+				break
+			}
+		}
+
+		if lastDashIndex > 0 {
+			location := parts[:lastDashIndex]
+			numberPart := parts[lastDashIndex+1:]
+
+			// Check if location is valid and number part is numeric
+			validLocations := []string{"living_room", "bedroom", "kitchen", "bathroom", "garage", "outdoor"}
+			for _, validLocation := range validLocations {
+				if location == validLocation {
+					if _, err := strconv.Atoi(numberPart); err == nil {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // extractLocationFromSensorID extracts location information from sensor ID
 func extractLocationFromSensorID(sensorID string) string {
 	// Try to parse sensor ID to extract location
@@ -200,12 +258,12 @@ func extractLocationFromSensorID(sensorID string) string {
 		}
 		return parts
 	}
-	
+
 	// If sensor ID is numeric, use default location
 	if _, err := strconv.Atoi(sensorID); err == nil {
 		return "unknown"
 	}
-	
+
 	return sensorID
 }
 

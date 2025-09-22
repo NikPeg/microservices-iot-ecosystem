@@ -99,8 +99,14 @@ class TestDeviceService:
         response = requests.get(f"{config.device_service_url}/device-service/api/v1/devices/{test_device_id}/commands")
 
         assert response.status_code == 200
-        commands = response.json()
-        assert isinstance(commands, list)
+        commands_response = response.json()
+        # Device service returns paginated response for commands
+        if isinstance(commands_response, dict) and 'content' in commands_response:
+            commands = commands_response['content']
+            assert isinstance(commands, list)
+        else:
+            # Fallback for direct list response
+            assert isinstance(commands_response, list)
 
     def test_get_devices_by_home_id(self, config, wait_for_services):
         """Test getting devices by home ID."""
