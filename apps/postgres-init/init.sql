@@ -190,36 +190,36 @@ DECLARE
 BEGIN
     -- Get admin user ID
     SELECT id INTO admin_user_id FROM users WHERE username = 'admin';
-    
+
     -- Insert sample home
     INSERT INTO homes (name, address, owner_id) VALUES
     ('Demo Smart Home', '123 Smart Street, Tech City', admin_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO home_id;
-    
+
     -- If home already exists, get its ID
     IF home_id IS NULL THEN
         SELECT id INTO home_id FROM homes WHERE owner_id = admin_user_id LIMIT 1;
     END IF;
-    
+
     -- Insert sample rooms
     INSERT INTO rooms (name, home_id, room_type) VALUES
     ('Living Room', home_id, 'living_room'),
     ('Master Bedroom', home_id, 'bedroom'),
     ('Kitchen', home_id, 'kitchen')
     ON CONFLICT DO NOTHING;
-    
+
     -- Get room IDs
     SELECT id INTO living_room_id FROM rooms WHERE name = 'Living Room' AND home_id = home_id;
     SELECT id INTO bedroom_id FROM rooms WHERE name = 'Master Bedroom' AND home_id = home_id;
     SELECT id INTO kitchen_id FROM rooms WHERE name = 'Kitchen' AND home_id = home_id;
-    
+
     -- Get device type IDs
     SELECT id INTO temp_sensor_type_id FROM device_types WHERE name = 'Temperature Sensor';
     SELECT id INTO humidity_sensor_type_id FROM device_types WHERE name = 'Humidity Sensor';
     SELECT id INTO motion_sensor_type_id FROM device_types WHERE name = 'Motion Sensor';
     SELECT id INTO light_bulb_type_id FROM device_types WHERE name = 'Smart Light Bulb';
-    
+
     -- Insert sample devices
     INSERT INTO devices (name, device_type_id, room_id, serial_number, status) VALUES
     ('Living Room Temperature Sensor', temp_sensor_type_id, living_room_id, 'TEMP001', 'online'),
@@ -229,7 +229,7 @@ BEGIN
     ('Bedroom Temperature Sensor', temp_sensor_type_id, bedroom_id, 'TEMP002', 'online'),
     ('Kitchen Temperature Sensor', temp_sensor_type_id, kitchen_id, 'TEMP003', 'online')
     ON CONFLICT (serial_number) DO NOTHING;
-    
+
 END $$;
 
 -- Create a function to update the updated_at timestamp
@@ -247,6 +247,34 @@ CREATE TRIGGER update_homes_updated_at BEFORE UPDATE ON homes FOR EACH ROW EXECU
 CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE ON rooms FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_devices_updated_at BEFORE UPDATE ON devices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_automation_rules_updated_at BEFORE UPDATE ON automation_rules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Create sensors table for the Smart Home service compatibility
+CREATE TABLE IF NOT EXISTS sensors (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    location VARCHAR(100) NOT NULL,
+    value FLOAT DEFAULT 0,
+    unit VARCHAR(20),
+    status VARCHAR(20) NOT NULL DEFAULT 'inactive',
+    last_updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Create indexes for the sensors table
+CREATE INDEX IF NOT EXISTS idx_sensors_type ON sensors(type);
+CREATE INDEX IF NOT EXISTS idx_sensors_location ON sensors(location);
+CREATE INDEX IF NOT EXISTS idx_sensors_status ON sensors(status);
+
+-- Insert sample sensors data
+INSERT INTO sensors (name, type, location, value, unit, status, last_updated, created_at) VALUES
+('Living Room Temperature', 'temperature', 'living_room', 22.5, '°C', 'active', NOW(), NOW()),
+('Living Room Humidity', 'humidity', 'living_room', 45.0, '%', 'active', NOW(), NOW()),
+('Kitchen Temperature', 'temperature', 'kitchen', 24.0, '°C', 'active', NOW(), NOW()),
+('Bedroom Temperature', 'temperature', 'bedroom', 20.5, '°C', 'active', NOW(), NOW()),
+('Living Room Motion', 'motion', 'living_room', 0, 'boolean', 'active', NOW(), NOW()),
+('Front Door Motion', 'motion', 'entrance', 0, 'boolean', 'active', NOW(), NOW())
+ON CONFLICT DO NOTHING;
 
 -- Grant permissions (the postgres user will have all permissions by default)
 -- Additional users can be created and granted specific permissions as needed
