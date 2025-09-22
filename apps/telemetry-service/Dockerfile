@@ -51,5 +51,5 @@ ENV PYTHONPATH=/app \
     REDIS_PORT=6379 \
     LOG_LEVEL=INFO
 
-# Run the minimal application for debugging
-CMD ["python", "-m", "uvicorn", "app.main_minimal:app", "--host", "0.0.0.0", "--port", "8082"]
+# Run the full application
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8082"]
