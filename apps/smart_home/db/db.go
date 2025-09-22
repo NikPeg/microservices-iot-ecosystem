@@ -8,6 +8,7 @@ import (
 
 	"smarthome/models"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -100,6 +101,9 @@ func (db *DB) GetSensorByID(ctx context.Context, id int) (models.Sensor, error) 
 		&s.CreatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.Sensor{}, errors.New("sensor not found")
+		}
 		return models.Sensor{}, fmt.Errorf("error getting sensor by ID: %w", err)
 	}
 

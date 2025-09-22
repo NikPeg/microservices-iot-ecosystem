@@ -161,6 +161,10 @@ func (h *SensorHandler) UpdateSensor(c *gin.Context) {
 
 	sensor, err := h.DB.UpdateSensor(context.Background(), id, sensorUpdate)
 	if err != nil {
+		if err.Error() == "sensor not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
