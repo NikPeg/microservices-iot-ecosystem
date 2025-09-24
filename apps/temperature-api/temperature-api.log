@@ -1,0 +1,18 @@
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> main.healthCheck (4 handlers)
+[GIN-debug] GET    /temperature              --> main.getTemperature (4 handlers)
+[GIN-debug] GET    /temperature/:sensorId    --> main.getTemperatureBySensorID (4 handlers)
+2025/09/15 14:48:14 Temperature API server starting on port :8081
+[GIN] 2025/09/15 - 14:48:24 | 200 |     127.166µs |             ::1 | GET      "/health"
+[GIN] 2025/09/15 - 14:48:33 | 200 |     101.666µs |             ::1 | GET      "/temperature?location=living_room"
+[GIN] 2025/09/15 - 14:48:41 | 200 |      55.084µs |             ::1 | GET      "/temperature?location=bedroom"
+[GIN] 2025/09/15 - 14:48:52 | 200 |      30.375µs |             ::1 | GET      "/temperature/TEMP001"
+[GIN] 2025/09/15 - 14:52:23 | 200 |      23.916µs |             ::1 | GET      "/health"
+[GIN] 2025/09/15 - 14:52:31 | 200 |      27.916µs |             ::1 | GET      "/temperature?location=kitchen"
+[GIN] 2025/09/15 - 14:52:38 | 200 |      23.208µs |             ::1 | GET      "/temperature/TEMP002"
+[GIN] 2025/09/15 - 16:06:00 | 404 |       2.042µs |             ::1 | GET      "/device-service/actuator/health"

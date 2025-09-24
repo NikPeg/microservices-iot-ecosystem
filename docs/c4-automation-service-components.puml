@@ -1,0 +1,86 @@
+@startuml C4_Automation_Service_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram for Automation Service
+
+Container_Boundary(automation_service, "Automation Service") {
+    Component(scenario_api, "Scenario API Controller", "Go/Gin", "REST API для управления сценариями")
+    Component(scenario_manager, "Scenario Manager", "Go", "Управление жизненным циклом сценариев")
+    Component(trigger_engine, "Trigger Engine", "Go", "Обработка триггеров и условий")
+    Component(rule_evaluator, "Rule Evaluator", "Go", "Оценка правил и условий")
+    Component(action_executor, "Action Executor", "Go", "Выполнение действий сценариев")
+    Component(scheduler, "Scheduler", "Go", "Планировщик задач по времени")
+    Component(event_processor, "Event Processor", "Go", "Обработка входящих событий")
+    
+    Component(scenario_repository, "Scenario Repository", "Go", "Доступ к данным сценариев")
+    Component(execution_repository, "Execution Repository", "Go", "История выполнения")
+    Component(state_cache, "State Cache Manager", "Go", "Управление кэшем состояний")
+    Component(event_subscriber, "Event Subscriber", "Go", "Подписка на события")
+    Component(command_publisher, "Command Publisher", "Go", "Публикация команд")
+}
+
+ContainerDb(automation_db, "Automation Database", "PostgreSQL", "Сценарии, правила, история")
+Container(redis_cache, "Redis Cache", "Redis", "Состояния сценариев")
+Container(message_broker, "Message Broker", "Apache Kafka", "События и команды")
+Container_Ext(api_gateway, "API Gateway", "Kong", "Маршрутизация запросов")
+Container_Ext(device_service, "Device Service", "Go", "Управление устройствами")
+Container_Ext(telemetry_service, "Telemetry Service", "Go", "Данные телеметрии")
+Container_Ext(notification_service, "Notification Service", "Go", "Отправка уведомлений")
+
+' API Gateway to Scenario API
+Rel(api_gateway, scenario_api, "Маршрутизирует запросы", "HTTP/REST")
+
+' Scenario API interactions
+Rel(scenario_api, scenario_manager, "Управляет сценариями", "Go interface")
+Rel(scenario_api, trigger_engine, "Настраивает триггеры", "Go interface")
+
+' Scenario Manager interactions
+Rel(scenario_manager, scenario_repository, "Сохраняет сценарии", "Go interface")
+Rel(scenario_manager, trigger_engine, "Регистрирует триггеры", "Go interface")
+Rel(scenario_manager, scheduler, "Планирует выполнение", "Go interface")
+
+' Trigger Engine interactions
+Rel(trigger_engine, rule_evaluator, "Оценивает условия", "Go interface")
+Rel(trigger_engine, action_executor, "Запускает действия", "Go interface")
+Rel(trigger_engine, execution_repository, "Логирует выполнение", "Go interface")
+
+' Rule Evaluator interactions
+Rel(rule_evaluator, state_cache, "Получает текущие состояния", "Go interface")
+Rel(rule_evaluator, telemetry_service, "Запрашивает данные", "HTTP/REST")
+
+' Action Executor interactions
+Rel(action_executor, command_publisher, "Публикует команды", "Go interface")
+Rel(action_executor, device_service, "Отправляет команды устройствам", "HTTP/REST")
+Rel(action_executor, execution_repository, "Логирует результаты", "Go interface")
+
+' Scheduler interactions
+Rel(scheduler, trigger_engine, "Запускает по расписанию", "Go interface")
+Rel(scheduler, scenario_repository, "Получает расписания", "Go interface")
+
+' Event Processor interactions
+Rel(event_processor, event_subscriber, "Получает события", "Go interface")
+Rel(event_processor, trigger_engine, "Передает события", "Go interface")
+Rel(event_processor, state_cache, "Обновляет состояния", "Go interface")
+
+' Repository interactions
+Rel(scenario_repository, automation_db, "Читает/записывает сценарии", "SQL/TCP")
+Rel(execution_repository, automation_db, "Записывает историю", "SQL/TCP")
+
+' State Cache interactions
+Rel(state_cache, redis_cache, "Кэширует состояния", "Redis Protocol")
+
+' Event Subscriber interactions
+Rel(event_subscriber, message_broker, "Подписывается на события", "Kafka Protocol")
+
+' Command Publisher interactions
+Rel(command_publisher, message_broker, "Публикует команды", "Kafka Protocol")
+
+' External service interactions
+Rel(telemetry_service, event_subscriber, "Отправляет события данных", "Kafka Protocol")
+Rel(command_publisher, device_service, "Отправляет команды устройствам", "Kafka Protocol")
+Rel(command_publisher, notification_service, "Отправляет уведомления", "Kafka Protocol")
+
+SHOW_LEGEND()
+@enduml

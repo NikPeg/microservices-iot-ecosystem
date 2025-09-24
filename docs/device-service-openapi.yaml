@@ -1,0 +1,685 @@
+openapi: 3.0.3
+info:
+  title: Device Service API
+  description: API for managing IoT devices in the Smart Home ecosystem
+  version: 1.0.0
+  contact:
+    name: Smart Home Team
+    email: api@smarthome.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://device-service:8081/api/v1
+    description: Device Service
+
+security:
+  - bearerAuth: []
+
+paths:
+  /devices:
+    get:
+      summary: Get list of devices
+      description: Retrieve a list of devices for the authenticated user
+      operationId: getDevices
+      tags:
+        - Devices
+      parameters:
+        - name: home_id
+          in: query
+          description: Filter devices by home ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: room_id
+          in: query
+          description: Filter devices by room ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          description: Filter devices by type
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter devices by status
+          required: false
+          schema:
+            $ref: '#/components/schemas/DeviceStatus'
+        - name: limit
+          in: query
+          description: Maximum number of devices to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of devices to skip
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of devices retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Register a new device
+      description: Register a new IoT device in the system
+      operationId: createDevice
+      tags:
+        - Devices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+      responses:
+        '201':
+          description: Device created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /devices/{deviceId}:
+    get:
+      summary: Get device by ID
+      description: Retrieve detailed information about a specific device
+      operationId: getDeviceById
+      tags:
+        - Devices
+      parameters:
+        - name: deviceId
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update device
+      description: Update device information
+      operationId: updateDevice
+      tags:
+        - Devices
+      parameters:
+        - name: deviceId
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete device
+      description: Remove a device from the system
+      operationId: deleteDevice
+      tags:
+        - Devices
+      parameters:
+        - name: deviceId
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /devices/{deviceId}/commands:
+    post:
+      summary: Send command to device
+      description: Send a command to a specific device
+      operationId: sendDeviceCommand
+      tags:
+        - Device Commands
+      parameters:
+        - name: deviceId
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCommandRequest'
+      responses:
+        '202':
+          description: Command accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCommand'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /devices/{deviceId}/commands/{commandId}:
+    get:
+      summary: Get command status
+      description: Retrieve the status and result of a device command
+      operationId: getDeviceCommand
+      tags:
+        - Device Commands
+      parameters:
+        - name: deviceId
+          in: path
+          description: Device ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commandId
+          in: path
+          description: Command ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCommand'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /device-types:
+    get:
+      summary: Get device types
+      description: Retrieve list of available device types
+      operationId: getDeviceTypes
+      tags:
+        - Device Types
+      responses:
+        '200':
+          description: Device types retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device_types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceType'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique device identifier
+        name:
+          type: string
+          description: Device name
+          example: "Living Room Thermostat"
+        serial_number:
+          type: string
+          description: Device serial number
+          example: "THM-001-2024"
+        device_type:
+          $ref: '#/components/schemas/DeviceType'
+        manufacturer:
+          $ref: '#/components/schemas/Manufacturer'
+        home_id:
+          type: string
+          format: uuid
+          description: Home ID where device is located
+        room_id:
+          type: string
+          format: uuid
+          description: Room ID where device is located
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        ip_address:
+          type: string
+          format: ipv4
+          description: Device IP address
+          nullable: true
+        protocol:
+          $ref: '#/components/schemas/DeviceProtocol'
+        configuration:
+          type: object
+          description: Device-specific configuration
+          additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceCapability'
+        last_seen:
+          type: string
+          format: date-time
+          description: Last time device was seen online
+          nullable: true
+        installed_at:
+          type: string
+          format: date-time
+          description: Device installation timestamp
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          description: Device registration timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    DeviceType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Smart Thermostat"
+        category:
+          type: string
+          enum: [sensor, actuator, controller, gateway]
+        description:
+          type: string
+          nullable: true
+
+    Manufacturer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "SmartHome Inc."
+        website:
+          type: string
+          format: uri
+          nullable: true
+
+    DeviceStatus:
+      type: string
+      enum: [active, inactive, error, maintenance, offline]
+      description: Current device status
+
+    DeviceProtocol:
+      type: string
+      enum: [mqtt, coap, http, zigbee, zwave]
+      description: Communication protocol used by device
+
+    DeviceCapability:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Capability type
+          example: "temperature_control"
+        name:
+          type: string
+          description: Human-readable capability name
+          example: "Temperature Control"
+        parameters:
+          type: object
+          description: Capability parameters
+          additionalProperties: true
+        supported_commands:
+          type: array
+          items:
+            type: string
+          description: List of supported commands
+
+    DeviceCommand:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Command ID
+        device_id:
+          type: string
+          format: uuid
+          description: Target device ID
+        command:
+          type: string
+          description: Command name
+          example: "set_temperature"
+        parameters:
+          type: object
+          description: Command parameters
+          additionalProperties: true
+        status:
+          $ref: '#/components/schemas/CommandStatus'
+        result:
+          type: object
+          description: Command execution result
+          nullable: true
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+            execution_time:
+              type: string
+          additionalProperties: true
+        issued_at:
+          type: string
+          format: date-time
+          description: Command issue timestamp
+        executed_at:
+          type: string
+          format: date-time
+          description: Command execution timestamp
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          description: Command expiration timestamp
+
+    CommandStatus:
+      type: string
+      enum: [pending, executing, completed, failed, expired]
+      description: Command execution status
+
+    CreateDeviceRequest:
+      type: object
+      required:
+        - name
+        - serial_number
+        - device_type_id
+        - home_id
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        serial_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        device_type_id:
+          type: string
+          format: uuid
+        manufacturer_id:
+          type: string
+          format: uuid
+          nullable: true
+        home_id:
+          type: string
+          format: uuid
+        room_id:
+          type: string
+          format: uuid
+          nullable: true
+        ip_address:
+          type: string
+          format: ipv4
+          nullable: true
+        protocol:
+          $ref: '#/components/schemas/DeviceProtocol'
+        configuration:
+          type: object
+          additionalProperties: true
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        room_id:
+          type: string
+          format: uuid
+          nullable: true
+        configuration:
+          type: object
+          additionalProperties: true
+
+    DeviceCommandRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          minLength: 1
+          example: "set_temperature"
+        parameters:
+          type: object
+          additionalProperties: true
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 30
+          description: Command timeout in seconds
+
+    DeviceListResponse:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        total:
+          type: integer
+          description: Total number of devices
+        limit:
+          type: integer
+          description: Number of devices per page
+        offset:
+          type: integer
+          description: Number of devices skipped
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Error message
+            details:
+              type: object
+              description: Additional error details
+              additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "BAD_REQUEST"
+              message: "Invalid request parameters"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Access denied"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "DEVICE_NOT_FOUND"
+              message: "Device not found"
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "DEVICE_ALREADY_EXISTS"
+              message: "Device with this serial number already exists"
+
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Request validation failed"
+              details:
+                fields:
+                  - field: "name"
+                    message: "Name is required"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An unexpected error occurred"

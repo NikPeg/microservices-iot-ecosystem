@@ -1,0 +1,157 @@
+@startuml Automation_Service_ER_Diagram
+!theme plain
+
+title Automation Service - Entity Relationship Diagram
+
+entity "Scenario" as scenario {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<External FK>>
+  * home_id : UUID <<External FK>>
+  * name : VARCHAR(100)
+  description : TEXT
+  * enabled : BOOLEAN
+  priority : INTEGER
+  triggers : JSONB
+  conditions : JSONB
+  actions : JSONB
+  schedule : JSONB
+  last_executed : TIMESTAMP
+  execution_count : INTEGER
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "ScenarioExecution" as scenario_execution {
+  * id : UUID <<PK>>
+  --
+  * scenario_id : UUID <<FK>>
+  * triggered_by : VARCHAR(100)
+  trigger_data : JSONB
+  * status : ENUM
+  * started_at : TIMESTAMP
+  completed_at : TIMESTAMP
+  duration_ms : INTEGER
+  actions_executed : INTEGER
+  actions_failed : INTEGER
+  error_message : TEXT
+  execution_log : JSONB
+}
+
+entity "Trigger" as trigger {
+  * id : UUID <<PK>>
+  --
+  * scenario_id : UUID <<FK>>
+  * type : ENUM
+  * name : VARCHAR(100)
+  description : TEXT
+  configuration : JSONB
+  * enabled : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Condition" as condition {
+  * id : UUID <<PK>>
+  --
+  * scenario_id : UUID <<FK>>
+  * type : ENUM
+  * name : VARCHAR(100)
+  description : TEXT
+  configuration : JSONB
+  operator : ENUM
+  value : JSONB
+  * enabled : BOOLEAN
+  * created_at : TIMESTAMP
+}
+
+entity "Action" as action {
+  * id : UUID <<PK>>
+  --
+  * scenario_id : UUID <<FK>>
+  * type : ENUM
+  * name : VARCHAR(100)
+  description : TEXT
+  configuration : JSONB
+  parameters : JSONB
+  * order_index : INTEGER
+  retry_count : INTEGER
+  timeout_seconds : INTEGER
+  * enabled : BOOLEAN
+  * created_at : TIMESTAMP
+}
+
+entity "ActionExecution" as action_execution {
+  * id : UUID <<PK>>
+  --
+  * execution_id : UUID <<FK>>
+  * action_id : UUID <<FK>>
+  * status : ENUM
+  * started_at : TIMESTAMP
+  completed_at : TIMESTAMP
+  duration_ms : INTEGER
+  result : JSONB
+  error_message : TEXT
+  retry_attempt : INTEGER
+}
+
+' Relationships
+scenario ||--o{ scenario_execution : "executed as"
+scenario ||--o{ trigger : "has triggers"
+scenario ||--o{ condition : "has conditions"
+scenario ||--o{ action : "has actions"
+scenario_execution ||--o{ action_execution : "executes actions"
+action ||--o{ action_execution : "executed as"
+
+' Notes for external relationships
+note right of scenario : user_id references\nUser Service
+note right of scenario : home_id references\nHome Service
+
+' Enumeration notes
+note bottom of trigger
+  Trigger Types:
+  - time_based
+  - device_event
+  - sensor_threshold
+  - manual
+  - webhook
+  - geofence
+end note
+
+note bottom of condition
+  Condition Types:
+  - device_state
+  - sensor_value
+  - time_range
+  - day_of_week
+  - weather
+  
+  Operators:
+  - equals
+  - not_equals
+  - greater_than
+  - less_than
+  - between
+  - contains
+end note
+
+note bottom of action
+  Action Types:
+  - device_command
+  - send_notification
+  - delay
+  - webhook_call
+  - email
+  - sms
+end note
+
+note bottom of scenario_execution
+  Status Values:
+  - running
+  - completed
+  - failed
+  - cancelled
+  - timeout
+end note
+
+@enduml

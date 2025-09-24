@@ -1,0 +1,121 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /device-service
+
+spring:
+  application:
+    name: device-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:device-postgres}:${DB_PORT:5432}/${DB_NAME:device_service_db}
+    username: ${DB_USERNAME:device_user}
+    password: ${DB_PASSWORD:device_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+logging:
+  level:
+    com.smarthome.deviceservice: INFO
+    org.springframework.data.redis: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/device-service.log
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Custom application properties
+app:
+  redis:
+    channels:
+      device-events: "device.events"
+      device-commands: "device.commands"
+      telemetry-data: "telemetry.data"
+
+  device:
+    command:
+      timeout-minutes: 5
+      max-retries: 3
+
+    heartbeat:
+      interval-seconds: 30
+      timeout-seconds: 120
+
+    battery:
+      low-threshold: 20
+      critical-threshold: 10
+
+# Swagger/OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  show-actuator: true
+
+# Integration endpoints
+integration:
+  monolith:
+    base-url: ${MONOLITH_URL:http://localhost:8080}
+    timeout: 5000
+    retry-attempts: 3
+
+  telemetry-service:
+    base-url: ${TELEMETRY_SERVICE_URL:http://localhost:8082}
+    timeout: 3000

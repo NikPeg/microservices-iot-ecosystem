@@ -1,0 +1,154 @@
+@startuml Notification_Service_ER_Diagram
+!theme plain
+
+title Notification Service - Entity Relationship Diagram
+
+entity "Notification" as notification {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<External FK>>
+  * type : ENUM
+  * title : VARCHAR(200)
+  * message : TEXT
+  channels : VARCHAR(100)[]
+  * priority : ENUM
+  * status : ENUM
+  template_id : UUID <<FK>>
+  template_data : JSONB
+  scheduled_at : TIMESTAMP
+  sent_at : TIMESTAMP
+  delivered_at : TIMESTAMP
+  expires_at : TIMESTAMP
+  retry_count : INTEGER
+  max_retries : INTEGER
+  * created_at : TIMESTAMP
+}
+
+entity "NotificationTemplate" as notification_template {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(100) <<UK>>
+  * type : ENUM
+  * channel : ENUM
+  subject_template : TEXT
+  * body_template : TEXT
+  variables : JSONB
+  * active : BOOLEAN
+  version : INTEGER
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "DeliveryAttempt" as delivery_attempt {
+  * id : UUID <<PK>>
+  --
+  * notification_id : UUID <<FK>>
+  * channel : ENUM
+  * attempt_number : INTEGER
+  * status : ENUM
+  * attempted_at : TIMESTAMP
+  delivered_at : TIMESTAMP
+  error_code : VARCHAR(50)
+  error_message : TEXT
+  response_data : JSONB
+  duration_ms : INTEGER
+}
+
+entity "DeliveryChannel" as delivery_channel {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<External FK>>
+  * channel_type : ENUM
+  * identifier : VARCHAR(255)
+  * verified : BOOLEAN
+  verification_token : VARCHAR(255)
+  verification_expires : TIMESTAMP
+  * enabled : BOOLEAN
+  preferences : JSONB
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "NotificationPreference" as notification_preference {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<External FK>>
+  * notification_type : ENUM
+  * channels : VARCHAR(100)[]
+  * enabled : BOOLEAN
+  quiet_hours_start : TIME
+  quiet_hours_end : TIME
+  timezone : VARCHAR(50)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "NotificationQueue" as notification_queue {
+  * id : UUID <<PK>>
+  --
+  * notification_id : UUID <<FK>>
+  * channel : ENUM
+  * priority : INTEGER
+  * scheduled_at : TIMESTAMP
+  * status : ENUM
+  attempts : INTEGER
+  next_retry : TIMESTAMP
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+' Relationships
+notification_template ||--o{ notification : "uses template"
+notification ||--o{ delivery_attempt : "has delivery attempts"
+notification ||--o{ notification_queue : "queued for delivery"
+
+' Notes for external relationships
+note right of notification : user_id references\nUser Service
+note right of delivery_channel : user_id references\nUser Service
+note right of notification_preference : user_id references\nUser Service
+
+' Enumeration notes
+note bottom of notification
+  Type Values:
+  - info
+  - warning
+  - error
+  - alert
+  - reminder
+  
+  Priority Values:
+  - low
+  - normal
+  - high
+  - urgent
+  
+  Status Values:
+  - pending
+  - queued
+  - sent
+  - delivered
+  - failed
+  - cancelled
+  - expired
+end note
+
+note bottom of delivery_channel
+  Channel Types:
+  - email
+  - sms
+  - push
+  - in_app
+  - webhook
+end note
+
+note bottom of delivery_attempt
+  Status Values:
+  - pending
+  - sent
+  - delivered
+  - failed
+  - bounced
+  - rejected
+end note
+
+@enduml

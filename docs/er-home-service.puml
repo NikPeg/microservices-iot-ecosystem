@@ -1,0 +1,108 @@
+@startuml Home_Service_ER_Diagram
+!theme plain
+
+title Home Service - Entity Relationship Diagram
+
+entity "Home" as home {
+  * id : UUID <<PK>>
+  --
+  * owner_id : UUID <<External FK>>
+  * name : VARCHAR(100)
+  address : TEXT
+  city : VARCHAR(100)
+  country : VARCHAR(100)
+  postal_code : VARCHAR(20)
+  timezone : VARCHAR(50)
+  area_sqm : DECIMAL(10,2)
+  floors_count : INTEGER
+  configuration : JSONB
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Room" as room {
+  * id : UUID <<PK>>
+  --
+  * home_id : UUID <<FK>>
+  * name : VARCHAR(100)
+  * type : ENUM
+  floor : INTEGER
+  area_sqm : DECIMAL(8,2)
+  description : TEXT
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "Floor" as floor {
+  * id : UUID <<PK>>
+  --
+  * home_id : UUID <<FK>>
+  * number : INTEGER
+  name : VARCHAR(100)
+  area_sqm : DECIMAL(10,2)
+  description : TEXT
+  * created_at : TIMESTAMP
+}
+
+entity "Location" as location {
+  * id : UUID <<PK>>
+  --
+  * home_id : UUID <<FK>>
+  room_id : UUID <<FK>>
+  * name : VARCHAR(100)
+  * type : ENUM
+  coordinates_x : DECIMAL(8,2)
+  coordinates_y : DECIMAL(8,2)
+  description : TEXT
+  * created_at : TIMESTAMP
+}
+
+entity "HomeConfiguration" as home_config {
+  * id : UUID <<PK>>
+  --
+  * home_id : UUID <<FK>>
+  * config_key : VARCHAR(100)
+  * config_value : JSONB
+  description : TEXT
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+' Relationships
+home ||--o{ room : "contains"
+home ||--o{ floor : "has floors"
+home ||--o{ location : "has locations"
+home ||--o{ home_config : "configured by"
+room ||--o{ location : "contains locations"
+
+' Notes for external relationships
+note right of home : owner_id references\nUser Service
+
+' Room type enumeration note
+note bottom of room
+  Room Types:
+  - living_room
+  - bedroom
+  - kitchen
+  - bathroom
+  - office
+  - garage
+  - basement
+  - attic
+  - hallway
+  - balcony
+end note
+
+' Location type enumeration note
+note bottom of location
+  Location Types:
+  - wall
+  - ceiling
+  - floor
+  - window
+  - door
+  - corner
+  - center
+end note
+
+@enduml

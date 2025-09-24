@@ -1,0 +1,142 @@
+@startuml Device_Service_Core_Domain_Model
+!theme plain
+
+title Device Service - Core Domain Model (Critical Parts Only)
+
+package "Core Domain Entities" {
+    abstract class Device {
+        -id: DeviceId
+        -name: String
+        -type: DeviceType
+        -status: DeviceStatus
+        -homeId: UUID
+        -roomId: UUID
+        
+        +getId(): DeviceId
+        +getStatus(): DeviceStatus
+        +updateStatus(status: DeviceStatus): void
+        +canExecuteCommand(command: DeviceCommand): boolean
+        +executeCommand(command: DeviceCommand): CommandResult
+    }
+    
+    class Sensor extends Device {
+        -measurementType: String
+        -unit: String
+        
+        +takeMeasurement(): Measurement
+    }
+    
+    class Actuator extends Device {
+        -actuatorType: String
+        
+        +activate(parameters: Map<String, Object>): void
+        +deactivate(): void
+    }
+    
+    class DeviceCommand {
+        -id: CommandId
+        -deviceId: DeviceId
+        -command: String
+        -parameters: Map<String, Object>
+        -status: CommandStatus
+        -executedAt: Timestamp
+        
+        +execute(): CommandResult
+        +markAsCompleted(result: CommandResult): void
+        +markAsFailed(error: String): void
+    }
+}
+
+package "Value Objects" {
+    class DeviceId {
+        -value: UUID
+        +getValue(): UUID
+    }
+    
+    enum DeviceType {
+        TEMPERATURE_SENSOR
+        LIGHT_SWITCH
+        THERMOSTAT
+        SMART_PLUG
+    }
+    
+    enum DeviceStatus {
+        ACTIVE
+        INACTIVE
+        ERROR
+        OFFLINE
+    }
+    
+    enum CommandStatus {
+        PENDING
+        COMPLETED
+        FAILED
+    }
+    
+    class CommandResult {
+        -success: boolean
+        -message: String
+        -executionTime: Duration
+        
+        +isSuccess(): boolean
+        +getMessage(): String
+    }
+}
+
+package "Critical Domain Services" {
+    interface DeviceCommandService {
+        +sendCommand(command: DeviceCommand): CommandResult
+        +getCommandHistory(deviceId: DeviceId): List<DeviceCommand>
+    }
+    
+    interface DeviceRegistrationService {
+        +registerDevice(device: Device): DeviceId
+        +validateDevice(device: Device): boolean
+    }
+}
+
+package "Key Domain Events" {
+    abstract class DomainEvent {
+        -eventId: UUID
+        -occurredAt: Timestamp
+        
+        +getEventId(): UUID
+        +getOccurredAt(): Timestamp
+    }
+    
+    class DeviceCommandExecutedEvent extends DomainEvent {
+        -deviceId: DeviceId
+        -command: String
+        -result: CommandResult
+        
+        +getDeviceId(): DeviceId
+        +getResult(): CommandResult
+    }
+    
+    class DeviceStatusChangedEvent extends DomainEvent {
+        -deviceId: DeviceId
+        -oldStatus: DeviceStatus
+        -newStatus: DeviceStatus
+        
+        +getDeviceId(): DeviceId
+        +getNewStatus(): DeviceStatus
+    }
+}
+
+' Key Relationships
+Device ||--|| DeviceId : identified by
+Device ||--|| DeviceType : typed by
+Device ||--|| DeviceStatus : has status
+Device ||--o{ DeviceCommand : receives
+
+DeviceCommand ||--|| CommandId : identified by
+DeviceCommand ||--|| CommandStatus : has status
+DeviceCommand ||--o| CommandResult : produces
+
+DeviceCommandService ..> DeviceCommand : manages
+DeviceRegistrationService ..> Device : registers
+
+DeviceCommandExecutedEvent ..> DeviceCommand : created from
+DeviceStatusChangedEvent ..> Device : created from
+
+@enduml

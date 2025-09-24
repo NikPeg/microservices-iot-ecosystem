@@ -1,0 +1,720 @@
+asyncapi: 3.0.0
+info:
+  title: Smart Home Event-Driven API
+  version: 1.0.0
+  description: |
+    Event-driven communication specification for Smart Home microservices ecosystem.
+    This API defines the asynchronous messaging patterns between microservices using Apache Kafka.
+  contact:
+    name: Smart Home Team
+    email: api@smarthome.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  kafka-cluster:
+    host: kafka:9092
+    protocol: kafka
+    description: Apache Kafka cluster for event streaming
+
+defaultContentType: application/json
+
+channels:
+  device.events:
+    description: Channel for device-related events
+    messages:
+      deviceStatusChanged:
+        $ref: '#/components/messages/DeviceStatusChanged'
+      deviceCommandExecuted:
+        $ref: '#/components/messages/DeviceCommandExecuted'
+      deviceRegistered:
+        $ref: '#/components/messages/DeviceRegistered'
+
+  telemetry.data:
+    description: Channel for telemetry data streaming
+    messages:
+      measurementReceived:
+        $ref: '#/components/messages/MeasurementReceived'
+      alertTriggered:
+        $ref: '#/components/messages/AlertTriggered'
+
+  automation.events:
+    description: Channel for automation and scenario events
+    messages:
+      scenarioTriggered:
+        $ref: '#/components/messages/ScenarioTriggered'
+      scenarioExecuted:
+        $ref: '#/components/messages/ScenarioExecuted'
+      executeDeviceCommand:
+        $ref: '#/components/messages/ExecuteDeviceCommand'
+
+  notification.events:
+    description: Channel for notification events
+    messages:
+      sendNotification:
+        $ref: '#/components/messages/SendNotification'
+      notificationDelivered:
+        $ref: '#/components/messages/NotificationDelivered'
+
+operations:
+  publishDeviceStatusChanged:
+    action: send
+    channel:
+      $ref: '#/channels/device.events'
+    messages:
+      - $ref: '#/components/messages/DeviceStatusChanged'
+    description: Published when a device status changes
+
+  subscribeToDeviceEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/device.events'
+    messages:
+      - $ref: '#/components/messages/DeviceStatusChanged'
+      - $ref: '#/components/messages/DeviceCommandExecuted'
+      - $ref: '#/components/messages/DeviceRegistered'
+    description: Subscribe to all device events
+
+  publishMeasurementData:
+    action: send
+    channel:
+      $ref: '#/channels/telemetry.data'
+    messages:
+      - $ref: '#/components/messages/MeasurementReceived'
+    description: Published when new measurement data is received
+
+  subscribeToTelemetryData:
+    action: receive
+    channel:
+      $ref: '#/channels/telemetry.data'
+    messages:
+      - $ref: '#/components/messages/MeasurementReceived'
+      - $ref: '#/components/messages/AlertTriggered'
+    description: Subscribe to telemetry data stream
+
+  publishScenarioEvent:
+    action: send
+    channel:
+      $ref: '#/channels/automation.events'
+    messages:
+      - $ref: '#/components/messages/ScenarioTriggered'
+      - $ref: '#/components/messages/ScenarioExecuted'
+    description: Published when scenario events occur
+
+  subscribeToAutomationEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/automation.events'
+    messages:
+      - $ref: '#/components/messages/ScenarioTriggered'
+      - $ref: '#/components/messages/ExecuteDeviceCommand'
+    description: Subscribe to automation events
+
+  publishNotificationRequest:
+    action: send
+    channel:
+      $ref: '#/channels/notification.events'
+    messages:
+      - $ref: '#/components/messages/SendNotification'
+    description: Published when notification needs to be sent
+
+  subscribeToNotificationEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/notification.events'
+    messages:
+      - $ref: '#/components/messages/SendNotification'
+      - $ref: '#/components/messages/NotificationDelivered'
+    description: Subscribe to notification events
+
+components:
+  messages:
+    DeviceStatusChanged:
+      name: DeviceStatusChanged
+      title: Device Status Changed
+      summary: Indicates that a device status has changed
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DeviceStatusChangedPayload'
+      examples:
+        - name: ThermostatOffline
+          summary: Thermostat went offline
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440001"
+            eventType: "DeviceStatusChanged"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            deviceName: "Living Room Thermostat"
+            oldStatus: "active"
+            newStatus: "offline"
+            timestamp: "2025-09-12T16:25:00Z"
+            metadata:
+              reason: "network_timeout"
+              last_seen: "2025-09-12T16:20:00Z"
+
+    DeviceCommandExecuted:
+      name: DeviceCommandExecuted
+      title: Device Command Executed
+      summary: Indicates that a device command has been executed
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DeviceCommandExecutedPayload'
+      examples:
+        - name: TemperatureSet
+          summary: Temperature was set successfully
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440002"
+            eventType: "DeviceCommandExecuted"
+            commandId: "cmd-550e8400-e29b-41d4-a716-446655440000"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            command: "set_temperature"
+            parameters:
+              temperature: 24.0
+              mode: "heat"
+            result:
+              success: true
+              message: "Temperature set successfully"
+              executionTime: "1.2s"
+              currentTemperature: 24.0
+            timestamp: "2025-09-12T16:25:01Z"
+
+    DeviceRegistered:
+      name: DeviceRegistered
+      title: Device Registered
+      summary: Indicates that a new device has been registered
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DeviceRegisteredPayload'
+      examples:
+        - name: NewThermostat
+          summary: New thermostat registered
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440003"
+            eventType: "DeviceRegistered"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            deviceName: "Living Room Thermostat"
+            deviceType: "smart_thermostat"
+            homeId: "home-550e8400-e29b-41d4-a716-446655440000"
+            roomId: "room-550e8400-e29b-41d4-a716-446655440000"
+            timestamp: "2025-09-12T16:25:00Z"
+
+    MeasurementReceived:
+      name: MeasurementReceived
+      title: Measurement Data Received
+      summary: New measurement data received from a device
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MeasurementReceivedPayload'
+      examples:
+        - name: TemperatureReading
+          summary: Temperature and humidity reading
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440004"
+            eventType: "MeasurementReceived"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            measurements:
+              - type: "temperature"
+                value: 23.5
+                unit: "°C"
+                quality: "good"
+              - type: "humidity"
+                value: 45.2
+                unit: "%"
+                quality: "good"
+            timestamp: "2025-09-12T16:25:00Z"
+
+    AlertTriggered:
+      name: AlertTriggered
+      title: Alert Triggered
+      summary: An alert has been triggered based on measurement data
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AlertTriggeredPayload'
+      examples:
+        - name: HighTemperatureAlert
+          summary: High temperature alert triggered
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440005"
+            eventType: "AlertTriggered"
+            alertId: "alert-550e8400-e29b-41d4-a716-446655440000"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            alertType: "threshold_exceeded"
+            severity: "high"
+            message: "Temperature exceeded 30°C"
+            currentValue: 31.5
+            threshold: 30.0
+            timestamp: "2025-09-12T16:25:00Z"
+
+    ScenarioTriggered:
+      name: ScenarioTriggered
+      title: Scenario Triggered
+      summary: An automation scenario has been triggered
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ScenarioTriggeredPayload'
+      examples:
+        - name: EveningComfort
+          summary: Evening comfort scenario triggered
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440006"
+            eventType: "ScenarioTriggered"
+            scenarioId: "scenario-550e8400-e29b-41d4-a716-446655440000"
+            executionId: "exec-550e8400-e29b-41d4-a716-446655440000"
+            scenarioName: "Evening Comfort"
+            triggeredBy: "time_trigger"
+            triggerData:
+              scheduledTime: "19:00"
+              actualTime: "19:00:02"
+            timestamp: "2025-09-12T19:00:02Z"
+
+    ScenarioExecuted:
+      name: ScenarioExecuted
+      title: Scenario Executed
+      summary: An automation scenario has completed execution
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ScenarioExecutedPayload'
+      examples:
+        - name: EveningComfortCompleted
+          summary: Evening comfort scenario completed
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440007"
+            eventType: "ScenarioExecuted"
+            scenarioId: "scenario-550e8400-e29b-41d4-a716-446655440000"
+            executionId: "exec-550e8400-e29b-41d4-a716-446655440000"
+            status: "completed"
+            actionsExecuted: 3
+            actionsFailed: 0
+            duration: "2.5s"
+            timestamp: "2025-09-12T19:00:05Z"
+
+    ExecuteDeviceCommand:
+      name: ExecuteDeviceCommand
+      title: Execute Device Command
+      summary: Request to execute a command on a device
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ExecuteDeviceCommandPayload'
+      examples:
+        - name: SetThermostatTemperature
+          summary: Set thermostat temperature from automation
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440008"
+            eventType: "ExecuteDeviceCommand"
+            deviceId: "550e8400-e29b-41d4-a716-446655440000"
+            command: "set_temperature"
+            parameters:
+              temperature: 22.0
+              mode: "auto"
+            scenarioId: "scenario-550e8400-e29b-41d4-a716-446655440000"
+            executionId: "exec-550e8400-e29b-41d4-a716-446655440000"
+            timestamp: "2025-09-12T19:00:03Z"
+
+    SendNotification:
+      name: SendNotification
+      title: Send Notification
+      summary: Request to send a notification to a user
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/SendNotificationPayload'
+      examples:
+        - name: TemperatureAlert
+          summary: Send temperature alert notification
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440009"
+            eventType: "SendNotification"
+            userId: "user-550e8400-e29b-41d4-a716-446655440000"
+            notificationType: "alert"
+            title: "Temperature Alert"
+            message: "Temperature in Living Room has exceeded 30°C"
+            channels: ["push", "email"]
+            priority: "high"
+            templateData:
+              deviceName: "Living Room Thermostat"
+              currentTemperature: 31.5
+              threshold: 30.0
+              roomName: "Living Room"
+            timestamp: "2025-09-12T16:25:00Z"
+
+    NotificationDelivered:
+      name: NotificationDelivered
+      title: Notification Delivered
+      summary: Indicates that a notification has been delivered
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NotificationDeliveredPayload'
+      examples:
+        - name: AlertDelivered
+          summary: Temperature alert delivered successfully
+          payload:
+            eventId: "550e8400-e29b-41d4-a716-446655440010"
+            eventType: "NotificationDelivered"
+            notificationId: "notif-550e8400-e29b-41d4-a716-446655440000"
+            userId: "user-550e8400-e29b-41d4-a716-446655440000"
+            channel: "push"
+            status: "delivered"
+            deliveredAt: "2025-09-12T16:25:05Z"
+            timestamp: "2025-09-12T16:25:05Z"
+
+  schemas:
+    BaseEvent:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - timestamp
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Unique event identifier
+        eventType:
+          type: string
+          description: Type of the event
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp in ISO 8601 format
+
+    DeviceStatusChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - deviceId
+            - oldStatus
+            - newStatus
+          properties:
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            deviceName:
+              type: string
+              description: Device name
+            oldStatus:
+              type: string
+              enum: [active, inactive, error, maintenance, offline]
+              description: Previous device status
+            newStatus:
+              type: string
+              enum: [active, inactive, error, maintenance, offline]
+              description: New device status
+            metadata:
+              type: object
+              description: Additional event metadata
+              additionalProperties: true
+
+    DeviceCommandExecutedPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - commandId
+            - deviceId
+            - command
+            - result
+          properties:
+            commandId:
+              type: string
+              format: uuid
+              description: Command identifier
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            command:
+              type: string
+              description: Command name
+            parameters:
+              type: object
+              description: Command parameters
+              additionalProperties: true
+            result:
+              type: object
+              required:
+                - success
+              properties:
+                success:
+                  type: boolean
+                  description: Whether command executed successfully
+                message:
+                  type: string
+                  description: Result message
+                executionTime:
+                  type: string
+                  description: Command execution time
+              additionalProperties: true
+
+    DeviceRegisteredPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - deviceId
+            - deviceName
+            - deviceType
+            - homeId
+          properties:
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            deviceName:
+              type: string
+              description: Device name
+            deviceType:
+              type: string
+              description: Device type
+            homeId:
+              type: string
+              format: uuid
+              description: Home identifier
+            roomId:
+              type: string
+              format: uuid
+              description: Room identifier
+              nullable: true
+
+    MeasurementReceivedPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - deviceId
+            - measurements
+          properties:
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            measurements:
+              type: array
+              items:
+                type: object
+                required:
+                  - type
+                  - value
+                  - unit
+                properties:
+                  type:
+                    type: string
+                    description: Measurement type
+                  value:
+                    type: number
+                    description: Measurement value
+                  unit:
+                    type: string
+                    description: Measurement unit
+                  quality:
+                    type: string
+                    enum: [good, bad, uncertain]
+                    description: Data quality indicator
+
+    AlertTriggeredPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - alertId
+            - deviceId
+            - alertType
+            - severity
+            - message
+          properties:
+            alertId:
+              type: string
+              format: uuid
+              description: Alert identifier
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            alertType:
+              type: string
+              description: Type of alert
+            severity:
+              type: string
+              enum: [low, medium, high, critical]
+              description: Alert severity
+            message:
+              type: string
+              description: Alert message
+            currentValue:
+              type: number
+              description: Current measurement value
+              nullable: true
+            threshold:
+              type: number
+              description: Threshold value that was exceeded
+              nullable: true
+
+    ScenarioTriggeredPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - scenarioId
+            - executionId
+            - triggeredBy
+          properties:
+            scenarioId:
+              type: string
+              format: uuid
+              description: Scenario identifier
+            executionId:
+              type: string
+              format: uuid
+              description: Execution identifier
+            scenarioName:
+              type: string
+              description: Scenario name
+            triggeredBy:
+              type: string
+              description: What triggered the scenario
+            triggerData:
+              type: object
+              description: Trigger-specific data
+              additionalProperties: true
+
+    ScenarioExecutedPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - scenarioId
+            - executionId
+            - status
+          properties:
+            scenarioId:
+              type: string
+              format: uuid
+              description: Scenario identifier
+            executionId:
+              type: string
+              format: uuid
+              description: Execution identifier
+            status:
+              type: string
+              enum: [completed, failed, partial]
+              description: Execution status
+            actionsExecuted:
+              type: integer
+              description: Number of actions executed
+            actionsFailed:
+              type: integer
+              description: Number of actions that failed
+            duration:
+              type: string
+              description: Execution duration
+            errorMessage:
+              type: string
+              description: Error message if execution failed
+              nullable: true
+
+    ExecuteDeviceCommandPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - deviceId
+            - command
+          properties:
+            deviceId:
+              type: string
+              format: uuid
+              description: Device identifier
+            command:
+              type: string
+              description: Command to execute
+            parameters:
+              type: object
+              description: Command parameters
+              additionalProperties: true
+            scenarioId:
+              type: string
+              format: uuid
+              description: Scenario that triggered the command
+              nullable: true
+            executionId:
+              type: string
+              format: uuid
+              description: Scenario execution identifier
+              nullable: true
+
+    SendNotificationPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - userId
+            - notificationType
+            - title
+            - message
+            - channels
+            - priority
+          properties:
+            userId:
+              type: string
+              format: uuid
+              description: User identifier
+            notificationType:
+              type: string
+              enum: [info, warning, error, alert]
+              description: Type of notification
+            title:
+              type: string
+              description: Notification title
+            message:
+              type: string
+              description: Notification message
+            channels:
+              type: array
+              items:
+                type: string
+                enum: [email, sms, push, in_app]
+              description: Delivery channels
+            priority:
+              type: string
+              enum: [low, normal, high, urgent]
+              description: Notification priority
+            templateData:
+              type: object
+              description: Data for notification template
+              additionalProperties: true
+
+    NotificationDeliveredPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEvent'
+        - type: object
+          required:
+            - notificationId
+            - userId
+            - channel
+            - status
+          properties:
+            notificationId:
+              type: string
+              format: uuid
+              description: Notification identifier
+            userId:
+              type: string
+              format: uuid
+              description: User identifier
+            channel:
+              type: string
+              enum: [email, sms, push, in_app]
+              description: Delivery channel
+            status:
+              type: string
+              enum: [delivered, failed, bounced]
+              description: Delivery status
+            deliveredAt:
+              type: string
+              format: date-time
+              description: Delivery timestamp
+              nullable: true
+            errorMessage:
+              type: string
+              description: Error message if delivery failed
+              nullable: true

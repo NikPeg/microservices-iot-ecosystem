@@ -1,0 +1,87 @@
+@startuml Device_Service_ER_Diagram
+!theme plain
+
+title Device Service - Entity Relationship Diagram
+
+entity "Device" as device {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(100)
+  * serial_number : VARCHAR(100) <<UK>>
+  * device_type_id : UUID <<FK>>
+  * manufacturer_id : UUID <<FK>>
+  model : VARCHAR(100)
+  firmware_version : VARCHAR(50)
+  * home_id : UUID <<External FK>>
+  room_id : UUID <<External FK>>
+  * status : ENUM
+  ip_address : INET
+  mac_address : VARCHAR(17)
+  protocol : ENUM
+  configuration : JSONB
+  capabilities : JSONB
+  last_seen : TIMESTAMP
+  installed_at : TIMESTAMP
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "DeviceType" as device_type {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(100)
+  * category : ENUM
+  description : TEXT
+  default_capabilities : JSONB
+  icon : VARCHAR(100)
+  * created_at : TIMESTAMP
+}
+
+entity "Manufacturer" as manufacturer {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(100)
+  website : VARCHAR(255)
+  support_email : VARCHAR(255)
+  * created_at : TIMESTAMP
+}
+
+entity "DeviceCommand" as device_command {
+  * id : UUID <<PK>>
+  --
+  * device_id : UUID <<FK>>
+  * command : VARCHAR(50)
+  parameters : JSONB
+  * status : ENUM
+  result : JSONB
+  error_message : TEXT
+  issued_by : UUID <<External FK>>
+  * issued_at : TIMESTAMP
+  executed_at : TIMESTAMP
+  expires_at : TIMESTAMP
+}
+
+entity "DeviceCapability" as device_capability {
+  * id : UUID <<PK>>
+  --
+  * device_id : UUID <<FK>>
+  * capability_type : VARCHAR(50)
+  * name : VARCHAR(100)
+  description : TEXT
+  parameters : JSONB
+  supported_commands : JSONB
+  * created_at : TIMESTAMP
+}
+
+' Relationships
+device_type ||--o{ device : "has type"
+manufacturer ||--o{ device : "manufactures"
+device ||--o{ device_command : "receives commands"
+device ||--o{ device_capability : "has capabilities"
+
+' Notes for external relationships
+note right of device : home_id references\nHome Service
+note right of device : room_id references\nHome Service  
+note right of device_command : issued_by references\nUser Service
+
+@enduml
